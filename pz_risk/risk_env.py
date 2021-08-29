@@ -6,8 +6,11 @@ from pettingzoo.utils import wrappers
 import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
-from board import Board, BOARDS
+from board import Board, BOARDS, STATES
+
 NUM_ITERS = 100
+MAX_CARD = 10
+MAX_UNIT = 100
 COLORS = [
     'tab:red',
     'tab:blue',
@@ -16,6 +19,7 @@ COLORS = [
     'tab:pink',
     'tab:cyan',
 ]
+
 
 def env():
     '''
@@ -61,13 +65,14 @@ class raw_env(AECEnv):
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
-        self.action_spaces = {agent: {'reinforce': MultiDiscrete([n_nodes, 100]),
-                                      'attack': Discrete(n_edges),
-                                      'fortify': MultiDiscrete([n_nodes, n_nodes, 100])
+        self.action_spaces = {agent: {STATES[0]: MultiDiscrete([n_nodes, 100]),
+                                      STATES[1]: Discrete(n_edges),
+                                      STATES[2]: MultiDiscrete([n_nodes, n_nodes, 100])
                                       } for agent in self.possible_agents}
-        self.observation_spaces = {agent: Tuple(tuple([MultiDiscrete([n_agent, 100]) for _ in range(n_nodes)]))
-                                   for agent in self.possible_agents}
-        self.board.reset(n_agent, 20, 7)
+        self.observation_spaces = {agent: Discrete(MAX_UNIT) for agent in self.possible_agents}  # placement
+        self.observation_spaces['board'] = Dict({})
+        self.observation_spaces['cards'] = MultiDiscrete([MAX_CARD for _ in range(n_agent)])
+        self.observation_spaces['my_cards'] = Discrete(2)
 
     def render(self, mode="human"):
         '''
@@ -77,7 +82,8 @@ class raw_env(AECEnv):
         G = self.board.g
         # pos = nx.spring_layout(G, seed=3113794652)  # positions for all nodes
         # pos = nx.kamada_kawai_layout(G)  # positions for all nodes
-        pos = {i+1: p for i, p in enumerate(self.board.pos)} if self.board.pos is not None else nx.kamada_kawai_layout(G)
+        pos = {i + 1: p for i, p in
+               enumerate(self.board.pos)} if self.board.pos is not None else nx.kamada_kawai_layout(G)
         if mode == 'human':
             options = {"edgecolors": "tab:gray", "node_size": 800, "alpha": 0.9}
             for agent in self.agents:
@@ -90,7 +96,7 @@ class raw_env(AECEnv):
             nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
 
             # some math labels
-            labels = {c[0]: c[1]['units'] for c in G.nodes(data=True)}
+            labels = {c[0]: c[1]['id'] for c in G.nodes(data=True)}
             nx.draw_networkx_labels(G, pos, labels, font_size=22, font_color="black")
 
             plt.tight_layout()
@@ -106,7 +112,11 @@ class raw_env(AECEnv):
         at any time after reset() is called.
         '''
         # observation of one agent is the previous state of the other
-        return np.array(self.observations[agent])
+        return {'board': self.board.g,
+                'my_card': self.board.player[agent].cards,
+                'placement': self.placement[agent],
+                'game_state': self.state_selection,
+                'cards': [len(p.cards) for p in self.board.player]}
 
     def close(self):
         '''
@@ -135,14 +145,23 @@ class raw_env(AECEnv):
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.dones = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
-        # self.state = {agent: NONE for agent in self.agents}
-        # self.observations = {agent: NONE for agent in self.agents}
         self.num_moves = 0
+        self.placement = {agent: 0 for agent in self.agents}
+        self.board.reset(len(self.agents), 20, 7)
         '''
         Our agent_selector utility allows easy cyclic stepping through the agents list.
         '''
         self._agent_selector = agent_selector(self.agents)
+        self._state_selector = agent_selector(STATES)
         self.agent_selection = self._agent_selector.next()
+        self.state_selection = self._state_selector.next()
+        print(self.agent_selection, self.state_selection)
+
+    def reward(self, agent):
+        return 0.0
+
+    def done(self, agent):
+        return False
 
     def step(self, action):
         '''
@@ -162,37 +181,38 @@ class raw_env(AECEnv):
             return self._was_done_step(action)
 
         agent = self.agent_selection
+        state = self.state_selection
 
         # the agent which stepped last had its _cumulative_rewards accounted for
         # (because it was returned by last()), so the _cumulative_rewards for this
         # agent should start again at 0
         self._cumulative_rewards[agent] = 0
 
+        # TODO: Check action before sending to board
+
         # stores action of current agent
-        self.state[self.agent_selection] = action
+        self.board.step(agent, state, action)
 
         # collect reward if it is the last agent to act
-        if self._agent_selector.is_last():
+        if self._agent_selector.is_last() and self._state_selector.is_last():
             # rewards for all agents are placed in the .rewards dictionary
-            self.rewards[self.agents[0]], self.rewards[self.agents[1]] = REWARD_MAP[(self.state[self.agents[0]], self.state[self.agents[1]])]
+
+            self.rewards = {agent: self.reward(agent) for agent in self.agents}
 
             self.num_moves += 1
             # The dones dictionary must be updated for all players.
-            self.dones = {agent: self.num_moves >= NUM_ITERS for agent in self.agents}
+            self.dones = {agent: self.done(agent) for agent in self.agents}
 
-            # observe the current state
-            for i in self.agents:
-                self.observations[i] = self.state[self.agents[1 - self.agent_name_mapping[i]]]
         else:
-            # necessary so that observe() returns a reasonable observation at all times.
-            self.state[self.agents[1 - self.agent_name_mapping[agent]]] = NONE
             # no rewards are allocated until both players give an action
             self._clear_rewards()
 
         # selects the next agent.
         self.agent_selection = self._agent_selector.next()
+        self.state_selection = self._state_selector.next()
         # Adds .rewards to ._cumulative_rewards
         self._accumulate_rewards()
+
 
 if __name__ == '__main__':
     e = env()

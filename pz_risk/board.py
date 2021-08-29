@@ -3,15 +3,40 @@ import networkx as nx
 import matplotlib.pyplot as plt
 import json
 import random
+from enum import Enum
 
 BOARDS = {}
+STATES = ['Reinforce', 'Attack', 'Fortify']
+
+
+class CardType(Enum):
+    Null = 0
+    Infantry = 1
+    Cavalry = 2
+    Artillery = 3
+    Wild = 4
+
+
+class Card:
+    def __init__(self):
+        self.type = CardType.Null
+        self.effective_node = -1
+
+
+class Player:
+    def __init__(self):
+        self.cards = []
+        self.num_of_unit_to_place = 0
 
 
 class Board:
     def __init__(self, graph: nx.Graph, pos=None):
         self.g = graph
         self.pos = pos
+        self.player = []
+
     def reset(self, n_agent, n_unit_per_agent, n_cell_per_agent):
+        self.player = [Player() for i in range(n_agent)]
         n_cells = self.g.number_of_nodes()
         assert n_cell_per_agent * n_agent == n_cells
         remaining_cells = [i for i in self.g.nodes()]
@@ -28,7 +53,15 @@ class Board:
                 x = left_unit if j + 1 == len(cells) else random.randint(1, min(left_unit, t // 3))
                 print(x)
                 left_unit -= x
-                nx.set_node_attributes(self.g, {cell: x+1}, 'units')
+                nx.set_node_attributes(self.g, {cell: x + 1}, 'units')
+
+    def step(self, agent, state, action):
+        if state == STATES[0]:  # Reinforce
+            self.add_unit(action[0], action[1])
+        elif state == STATES[1]:  # Attack
+            self.attack(action[0], action[1])
+        else:  # Fortify
+            self.fortify(action[0], action[1], action[2])
 
 
 def register_map(name, filepath):
