@@ -1,0 +1,387 @@
+{
+  "name": "world",
+  "num_of_group": 6,
+  "num_of_cell": 42,
+  "cells": [
+    {
+      "name": "Alaska",
+      "group": "North America",
+      "id": 1,
+      "gid": 1
+    },
+    {
+      "name": "NW Territory",
+      "group": "North America",
+      "id": 2,
+      "gid": 1
+    },
+    {
+      "name": "Green Land",
+      "group": "North America",
+      "id": 3,
+      "gid": 1
+    },
+    {
+      "name": "Alberta",
+      "group": "North America",
+      "id": 4,
+      "gid": 1
+    },
+    {
+      "name": "Ontario",
+      "group": "North America",
+      "id": 5,
+      "gid": 1
+    },
+    {
+      "name": "Quebec",
+      "group": "North America",
+      "id": 6,
+      "gid": 1
+    },
+    {
+      "name": "Central America",
+      "group": "North America",
+      "id": 7,
+      "gid": 1
+    },
+    {
+      "name": "W USA",
+      "group": "North America",
+      "id": 8,
+      "gid": 1
+    },
+    {
+      "name": "E USA",
+      "group": "North America",
+      "id": 9,
+      "gid": 1
+    },
+    {
+      "name": "Venezuela",
+      "group": "South America",
+      "id": 10,
+      "gid": 2
+    },
+    {
+      "name": "Peru",
+      "group": "South America",
+      "id": 11,
+      "gid": 2
+    },
+    {
+      "name": "Brazil",
+      "group": "South America",
+      "id": 12,
+      "gid": 2
+    },
+    {
+      "name": "Argentina",
+      "group": "South America",
+      "id": 13,
+      "gid": 2
+    },
+    {
+      "name": "Egypt",
+      "group": "Africa",
+      "id": 14,
+      "gid": 3
+    },
+    {
+      "name": "N Africa",
+      "group": "Africa",
+      "id": 15,
+      "gid": 3
+    },
+    {
+      "name": "E Africa",
+      "group": "Africa",
+      "id": 16,
+      "gid": 3
+    },
+    {
+      "name": "Congo",
+      "group": "Africa",
+      "id": 17,
+      "gid": 3
+    },
+    {
+      "name": "S Africa",
+      "group": "Africa",
+      "id": 18,
+      "gid": 3
+    },
+    {
+      "name": "Madagascar",
+      "group": "Africa",
+      "id": 19,
+      "gid": 3
+    },
+    {
+      "name": "Iceland",
+      "group": "Europe",
+      "id": 20,
+      "gid": 4
+    },
+    {
+      "name": "Scandinavia",
+      "group": "Europe",
+      "id": 21,
+      "gid": 4
+    },
+    {
+      "name": "N Europe",
+      "group": "Europe",
+      "id": 22,
+      "gid": 4
+    },
+    {
+      "name": "W Europe",
+      "group": "Europe",
+      "id": 23,
+      "gid": 4
+    },
+    {
+      "name": "S Europe",
+      "group": "Europe",
+      "id": 24,
+      "gid": 4
+    },
+    {
+      "name": "Ukraine",
+      "group": "Europe",
+      "id": 25,
+      "gid": 4
+    },
+    {
+      "name": "Britain",
+      "group": "Europe",
+      "id": 26,
+      "gid": 4
+    },
+    {
+      "name": "Ural",
+      "group": "Asia",
+      "id": 27,
+      "gid": 5
+    },
+    {
+      "name": "Middle East",
+      "group": "Asia",
+      "id": 28,
+      "gid": 5
+    },
+    {
+      "name": "Afghanistan",
+      "group": "Asia",
+      "id": 29,
+      "gid": 5
+    },
+    {
+      "name": "India",
+      "group": "Asia",
+      "id": 30,
+      "gid": 5
+    },
+    {
+      "name": "Siam",
+      "group": "Asia",
+      "id": 31,
+      "gid": 5
+    },
+    {
+      "name": "China",
+      "group": "Asia",
+      "id": 32,
+      "gid": 5
+    },
+    {
+      "name": "Japan",
+      "group": "Asia",
+      "id": 33,
+      "gid": 5
+    },
+    {
+      "name": "Mongolia",
+      "group": "Asia",
+      "id": 34,
+      "gid": 5
+    },
+    {
+      "name": "Irkutsk",
+      "group": "Asia",
+      "id": 35,
+      "gid": 5
+    },
+    {
+      "name": "Yakutsk",
+      "group": "Asia",
+      "id": 36,
+      "gid": 5
+    },
+    {
+      "name": "Siberia",
+      "group": "Asia",
+      "id": 37,
+      "gid": 5
+    },
+    {
+      "name": "Kamchatka",
+      "group": "Asia",
+      "id": 38,
+      "gid": 5
+    },
+    {
+      "name": "W Australia",
+      "group": "Australia",
+      "id": 39,
+      "gid": 6
+    },
+    {
+      "name": "E Australia",
+      "group": "Australia",
+      "id": 40,
+      "gid": 6
+    },
+    {
+      "name": "Indonesia",
+      "group": "Australia",
+      "id": 41,
+      "gid": 6
+    },
+    {
+      "name": "New Guinea",
+      "group": "Australia",
+      "id": 42,
+      "gid": 6
+    }
+  ],
+  "edges": [
+    [1, 2],
+    [1, 4],
+    [1, 38],
+    [2, 4],
+    [2, 3],
+    [2, 5],
+    [3, 5],
+    [3, 6],
+    [3, 20],
+    [4, 5],
+    [4, 8],
+    [5, 6],
+    [5, 8],
+    [5, 9],
+    [6, 9],
+    [7, 8],
+    [7, 9],
+    [7, 10],
+    [8, 9],
+    [10, 11],
+    [10, 12],
+    [11, 12],
+    [11, 13],
+    [12, 13],
+    [12, 15],
+    [14, 15],
+    [14, 16],
+    [14, 24],
+    [14, 28],
+    [15, 16],
+    [15, 17],
+    [15, 23],
+    [15, 24],
+    [16, 17],
+    [16, 18],
+    [16, 19],
+    [17, 18],
+    [18, 19],
+    [20, 21],
+    [20, 26],
+    [21, 26],
+    [21, 25],
+    [21, 22],
+    [22, 26],
+    [22, 25],
+    [22, 23],
+    [22, 24],
+    [23, 26],
+    [23, 24],
+    [24, 25],
+    [24, 28],
+    [25, 27],
+    [25, 28],
+    [25, 29],
+    [27, 29],
+    [27, 32],
+    [27, 37],
+    [28, 29],
+    [28, 30],
+    [29, 30],
+    [29, 32],
+    [30, 31],
+    [30, 32],
+    [31, 32],
+    [31, 41],
+    [32, 34],
+    [32, 37],
+    [33, 34],
+    [33, 38],
+    [34, 38],
+    [34, 37],
+    [34, 35],
+    [35, 36],
+    [35, 37],
+    [35, 38],
+    [36, 37],
+    [36, 38],
+    [39, 40],
+    [39, 41],
+    [39, 42],
+    [40, 42],
+    [41, 42]
+  ],
+  "pos": [
+    [-1, 1],
+    [-0.8, 1],
+    [-0.6, 1],
+    [-1, 0.8],
+    [-0.8, 0.8],
+    [-0.6, 0.8],
+    [-0.8, 0.4],
+    [-1, 0.6],
+    [-0.6, 0.6],
+    [-0.8, 0.2],
+    [-1, 0],
+    [-0.6, 0],
+    [-0.8, -0.6],
+    [0, 0],
+    [-0.4, 0],
+    [0, -0.2],
+    [-0.2, -0.4],
+    [-0.2, -0.6],
+    [0, -0.6],
+    [-0.4, 1],
+    [-0.2, 1],
+    [-0.2, 0.6],
+    [-0.4, 0.4],
+    [-0.2, 0.2],
+    [0, 0.8],
+    [-0.4, 0.8],
+    [0.2, 0.8],
+    [0, 0.2],
+    [0.2, 0.4],
+    [0.4, 0.2],
+    [0.6, 0.2],
+    [0.6, 0.4],
+    [0.8, 0.6],
+    [0.6, 0.6],
+    [0.6, 0.8],
+    [0.6, 1],
+    [0.4, 1],
+    [0.8, 1],
+    [0.6, -0.4],
+    [0.8, -0.4],
+    [0.6, 0],
+    [0.8, 0]
+  ]
+}
