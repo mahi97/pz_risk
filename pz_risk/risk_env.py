@@ -1,4 +1,7 @@
-from gym.spaces import Discrete, MultiDiscrete, Tuple, Dict
+import math
+import random
+
+from gym.spaces import Discrete, MultiDiscrete, Tuple, Dict, Box
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector
 from pettingzoo.utils import wrappers
@@ -6,7 +9,9 @@ from pettingzoo.utils import wrappers
 import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
-from board import Board, BOARDS, STATES
+from typing import Tuple
+
+from board import Board, BOARDS, GameState
 
 NUM_ITERS = 100
 MAX_CARD = 10
@@ -63,16 +68,62 @@ class raw_env(AECEnv):
         n_edges = self.board.g.number_of_edges()
         self.possible_agents = [r for r in range(n_agent)]
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
+        self.reinforce_cst = []
+        self.fortify_cst = []
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
-        self.action_spaces = {agent: {STATES[0]: MultiDiscrete([n_nodes, 100]),
-                                      STATES[1]: Discrete(n_edges),
-                                      STATES[2]: MultiDiscrete([n_nodes, n_nodes, 100])
+        self.action_spaces = {agent: {GameState.Reinforce: MultiDiscrete([n_nodes, 100]),
+                                      GameState.Attack: Discrete(n_edges),
+                                      GameState.Fortify: MultiDiscrete([n_nodes, n_nodes, 100]),
+                                      GameState.Start: Discrete(1),
+                                      GameState.End: Discrete(1),
+                                      GameState.Card: Discrete(2),
+                                      GameState.Move: Discrete(100)
                                       } for agent in self.possible_agents}
         self.observation_spaces = {agent: Discrete(MAX_UNIT) for agent in self.possible_agents}  # placement
         self.observation_spaces['board'] = Dict({})
         self.observation_spaces['cards'] = MultiDiscrete([MAX_CARD for _ in range(n_agent)])
         self.observation_spaces['my_cards'] = Discrete(2)
+
+    def sample(self):
+        p = self.agent_selection
+        u = self.placement[p]
+        if self.state_selection == GameState.Reinforce:
+            nodes = self.board.player_nodes(p)
+            branches = math.comb(u + len(nodes)- 1, u)
+            index = np.random.randint(branches)
+            r = sorted([(index // u**i) % u  for i in range(len(nodes))])
+            r.append(u)
+            r2 = {n:r[i+1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
+            return [(0 if n not in nodes else r2[n]) for n in self.board.g.nodes()]
+        elif self.state_selection == GameState.Card:
+            return np.random.randint(2)
+        elif self.state_selection == GameState.Attack:
+            edges = self.board.player_attack_edges(p)
+            index = np.random.randint(len(edges))
+            return edges[index]
+        elif self.state_selection == GameState.Move:
+            return np.random.randint(u)
+        elif self.state_selection == GameState.Fortify:
+            cc = self.board.player_connected_components(p)
+            branches = []
+            potential_sources = []
+            for c in cc:
+                potential_source = [node for node in c if self.board.g.nodes[node]['units'] >= 2]
+                branches.append(len(potential_source) * (len(c) - 1))
+                potential_sources.append(potential_source)
+            index = np.random.randint(branches)
+            total_branch = 0
+            src = -1
+            trg = -1
+            for b, c, ps in zip(branches, cc, potential_sources):
+                total_branch += b
+                if index < total_branch:
+                    src = ps[index // len(c) - 1]
+                    trg = c[index % len(c)] if index % len(c) < index // len(c) else c[index % len(c) + 1]
+            num_unit = np.random.randint(self.board.g.nodes[src]['units'])
+            return src, trg, num_unit
+
 
     def render(self, mode="human"):
         '''
@@ -96,7 +147,7 @@ class raw_env(AECEnv):
             nx.draw_networkx_edges(G, pos, width=1.0, alpha=0.5)
 
             # some math labels
-            labels = {c[0]: c[1]['id'] for c in G.nodes(data=True)}
+            labels = {c[0]: c[1]['units'] for c in G.nodes(data=True)}
             nx.draw_networkx_labels(G, pos, labels, font_size=22, font_color="black")
 
             plt.tight_layout()
@@ -152,9 +203,8 @@ class raw_env(AECEnv):
         Our agent_selector utility allows easy cyclic stepping through the agents list.
         '''
         self._agent_selector = agent_selector(self.agents)
-        self._state_selector = agent_selector(STATES)
         self.agent_selection = self._agent_selector.next()
-        self.state_selection = self._state_selector.next()
+        self.state_selection = GameState.Start
         print(self.agent_selection, self.state_selection)
 
     def reward(self, agent):
@@ -209,7 +259,7 @@ class raw_env(AECEnv):
 
         # selects the next agent.
         self.agent_selection = self._agent_selector.next()
-        self.state_selection = self._state_selector.next()
+        self.state_selection = GameState.Start # TODO: ...
         # Adds .rewards to ._cumulative_rewards
         self._accumulate_rewards()
 
@@ -218,3 +268,7 @@ if __name__ == '__main__':
     e = env()
     e.reset()
     e.render()
+    for agent in e.agent_iter():
+        obs, rew, done, info = e.last()
+        action_space = e.action_spaces[agent][obs['game_state']]
+        e.step(e.unwrapped.sample())

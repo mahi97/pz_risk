@@ -6,7 +6,16 @@ import random
 from enum import Enum
 
 BOARDS = {}
-STATES = ['Reinforce', 'Attack', 'Fortify']
+
+
+class GameState(Enum):
+    Start = 0
+    Card = 1
+    Reinforce = 2
+    Attack = 3
+    Move = 4
+    Fortify = 5
+    End = 6
 
 
 class CardType(Enum):
@@ -35,6 +44,19 @@ class Board:
         self.pos = pos
         self.player = []
 
+    def player_nodes(self, player):
+        return [n[0] for n in self.g.nodes(data=True) if n[1]['player'] == player]
+
+    def player_attack_edges(self, player):
+        ee = []
+        for e in self.g.edges:
+            a = self.g.nodes[e[0]]['player'] != self.board.g.nodes[e[1]]['player']
+            b = player == self.g.nodes[e[0]]['player'] and self.g.nodes[e[0]]['units'] >= 2
+            c = player == self.g.nodes[e[1]]['player'] and self.g.nodes[e[1]]['units'] >= 2
+            if a and (b or c):
+                ee.append(e)
+        return ee
+
     def reset(self, n_agent, n_unit_per_agent, n_cell_per_agent):
         self.player = [Player() for i in range(n_agent)]
         n_cells = self.g.number_of_nodes()
@@ -56,11 +78,11 @@ class Board:
                 nx.set_node_attributes(self.g, {cell: x + 1}, 'units')
 
     def step(self, agent, state, action):
-        if state == STATES[0]:  # Reinforce
+        if state == GameState.Reinforce:  # Reinforce
             self.add_unit(action[0], action[1])
-        elif state == STATES[1]:  # Attack
+        elif state == GameState.Attack:  # Attack
             self.attack(action[0], action[1])
-        else:  # Fortify
+        elif state == GameState.Fortify:  # Fortify
             self.fortify(action[0], action[1], action[2])
 
 
