@@ -13,6 +13,8 @@ from typing import Tuple
 
 from board import Board, BOARDS, GameState
 
+from loguru import logger
+
 NUM_ITERS = 100
 MAX_CARD = 10
 MAX_UNIT = 100
@@ -90,11 +92,11 @@ class raw_env(AECEnv):
         u = self.placement[p]
         if self.state_selection == GameState.Reinforce:
             nodes = self.board.player_nodes(p)
-            branches = math.comb(u + len(nodes)- 1, u)
+            branches = math.comb(u + len(nodes) - 1, u)
             index = np.random.randint(branches)
-            r = sorted([(index // u**i) % u  for i in range(len(nodes))])
+            r = sorted([(index // u ** i) % u for i in range(len(nodes))])
             r.append(u)
-            r2 = {n:r[i+1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
+            r2 = {n: r[i + 1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
             return [(0 if n not in nodes else r2[n]) for n in self.board.g.nodes()]
         elif self.state_selection == GameState.Card:
             return np.random.randint(2)
@@ -112,18 +114,19 @@ class raw_env(AECEnv):
                 potential_source = [node for node in c if self.board.g.nodes[node]['units'] >= 2]
                 branches.append(len(potential_source) * (len(c) - 1))
                 potential_sources.append(potential_source)
-            index = np.random.randint(branches)
+
+            index = np.random.randint(sum(branches))
             total_branch = 0
             src = -1
             trg = -1
             for b, c, ps in zip(branches, cc, potential_sources):
-                total_branch += b
-                if index < total_branch:
+                if index < b:
                     src = ps[index // len(c) - 1]
-                    trg = c[index % len(c)] if index % len(c) < index // len(c) else c[index % len(c) + 1]
+                    trg = c[index % len(c)] if index % len(c) < index // len(c) else c[(index + 1) % len(c)]
+                    break
+                index -= b
             num_unit = np.random.randint(self.board.g.nodes[src]['units'])
             return src, trg, num_unit
-
 
     def render(self, mode="human"):
         '''
@@ -152,6 +155,7 @@ class raw_env(AECEnv):
 
             plt.tight_layout()
             plt.axis("off")
+            plt.ion()
             plt.show()
         else:
             print('Wait for it')
@@ -163,6 +167,8 @@ class raw_env(AECEnv):
         at any time after reset() is called.
         '''
         # observation of one agent is the previous state of the other
+        nodes_controlled = len([i for i in self.board.g.nodes(data='player_id') if i[1] == agent])
+        self.placement[agent] = max(3, nodes_controlled // 3)
         return {'board': self.board.g,
                 'my_card': self.board.player[agent].cards,
                 'placement': self.placement[agent],
@@ -197,7 +203,7 @@ class raw_env(AECEnv):
         self.dones = {agent: False for agent in self.agents}
         self.infos = {agent: {} for agent in self.agents}
         self.num_moves = 0
-        self.placement = {agent: 0 for agent in self.agents}
+        self.placement = {agent: 3 for agent in self.agents}
         self.board.reset(len(self.agents), 20, 7)
         '''
         Our agent_selector utility allows easy cyclic stepping through the agents list.
@@ -212,6 +218,69 @@ class raw_env(AECEnv):
 
     def done(self, agent):
         return False
+
+    def can_fortify(self):
+        p = self.agent_selection
+        cc = self.board.player_connected_components(p)
+        branches = []
+        potential_sources = []
+        for c in cc:
+            potential_source = [node for node in c if self.board.g.nodes[node]['units'] >= 2]
+            branches.append(len(potential_source) * (len(c) - 1))
+            potential_sources.append(potential_source)
+        return sum(branches) > 0
+
+    def validate_action(self, agent, state, action):
+        p = agent
+        u = self.placement[p]
+        gn = lambda x: self.board.g.nodes[x]['name']
+
+        if state == GameState.Reinforce:
+            if sum(action) != u:
+                logger.error('sum(action) != player placement: {} != {}'.format(sum(action), u))
+                return False
+            if min(action) < 0:
+                logger.error('min(action) is less than zero! {}'.format(min(action)))
+                return False
+            for node, units in enumerate(action):
+                if units > 0 and node+1 not in self.board.player_nodes(agent):
+                    logger.error('selected node is not owned by player: node: {}, player: {}'.format(
+                        self.board.g.nodes[node+1]['name'], p))
+                    return False
+        elif self.state_selection == GameState.Card:
+            return 0 <= action <= 1
+        elif self.state_selection == GameState.Attack:
+            edges = self.board.player_attack_edges(p)
+            if action not in edges:
+                logger.error('Attack Can not be performed from {} to {}'.format(gn(action[0]), gn(action[1])))
+                return False
+        elif self.state_selection == GameState.Move:
+            return 0 <= action <= u
+        elif self.state_selection == GameState.Fortify:
+            cc = self.board.player_connected_components(p)
+            c = [c for c in cc if action[0] in c][0]
+            if action[1] not in c:
+                logger.error('Fortify Can not be performed from {} to {}'.format(gn(action[0]), gn(action[1])))
+                return False
+            if action[2] > self.board.g.nodes[action[0]]['units']:
+                logger.error('Fortify Can not be more than source units!')
+                return False
+        return True
+
+    def next_state(self, state, attack_succeed, attack_finished, game_over):
+        next_state = {
+            GameState.Start: GameState.Reinforce,
+            GameState.Reinforce: GameState.Attack,
+            GameState.Attack:
+                GameState.Move if attack_succeed
+                else GameState.Fortify if attack_finished and self.can_fortify()
+                else GameState.Reinforce if attack_finished
+                else GameState.Attack,
+            GameState.Move: GameState.Attack,
+            GameState.Fortify: GameState.Reinforce if not game_over else GameState.End
+        }
+
+        return next_state[state]
 
     def step(self, action):
         '''
@@ -232,19 +301,23 @@ class raw_env(AECEnv):
 
         agent = self.agent_selection
         state = self.state_selection
-
+        logger.info('Player: {}, State: {}, Actions: {}'.format(agent, state, action))
         # the agent which stepped last had its _cumulative_rewards accounted for
         # (because it was returned by last()), so the _cumulative_rewards for this
         # agent should start again at 0
         self._cumulative_rewards[agent] = 0
 
         # TODO: Check action before sending to board
-
+        valid = self.validate_action(agent, state, action)
+        if not valid:
+            logger.error('Something is Wrong!')
+            exit(1)
         # stores action of current agent
-        self.board.step(agent, state, action)
+
+        attack_succeed = self.board.step(agent, state, action)
 
         # collect reward if it is the last agent to act
-        if self._agent_selector.is_last() and self._state_selector.is_last():
+        if self._agent_selector.is_last() and self.state_selection == GameState.Fortify:
             # rewards for all agents are placed in the .rewards dictionary
 
             self.rewards = {agent: self.reward(agent) for agent in self.agents}
@@ -259,7 +332,8 @@ class raw_env(AECEnv):
 
         # selects the next agent.
         self.agent_selection = self._agent_selector.next()
-        self.state_selection = GameState.Start # TODO: ...
+        self.state_selection = self.next_state(state, attack_succeed, True, False)
+
         # Adds .rewards to ._cumulative_rewards
         self._accumulate_rewards()
 
@@ -270,5 +344,6 @@ if __name__ == '__main__':
     e.render()
     for agent in e.agent_iter():
         obs, rew, done, info = e.last()
-        action_space = e.action_spaces[agent][obs['game_state']]
+        # action_space = e.action_spaces[agent][obs['game_state']]
         e.step(e.unwrapped.sample())
+        e.render()
