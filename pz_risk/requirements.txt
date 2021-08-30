@@ -1,0 +1,7 @@
+matplotlib
+networkx
+numpy
+scipy
+gym
+pettingzoo
+
