@@ -70,13 +70,11 @@ class raw_env(AECEnv):
         n_edges = self.board.g.number_of_edges()
         self.possible_agents = [r for r in range(n_agent)]
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
-        self.reinforce_cst = []
-        self.fortify_cst = []
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
         self.action_spaces = {agent: {GameState.Reinforce: MultiDiscrete([n_nodes, 100]),
-                                      GameState.Attack: Discrete(n_edges),
-                                      GameState.Fortify: MultiDiscrete([n_nodes, n_nodes, 100]),
+                                      GameState.Attack: Discrete(n_edges),  # +1 for Skip
+                                      GameState.Fortify: MultiDiscrete([n_nodes, n_nodes, 100, 2]),  # Last dim for Skip
                                       GameState.Start: Discrete(1),
                                       GameState.End: Discrete(1),
                                       GameState.Card: Discrete(2),
@@ -89,8 +87,10 @@ class raw_env(AECEnv):
 
     def sample(self):
         p = self.agent_selection
-        u = self.placement[p]
-        if self.state_selection == GameState.Reinforce:
+        if self.dones[p]:
+            return None
+        u = self.board.players[p].placement
+        if self.board.state == GameState.Reinforce:
             nodes = self.board.player_nodes(p)
             branches = math.comb(u + len(nodes) - 1, u)
             index = np.random.randint(branches)
@@ -98,15 +98,16 @@ class raw_env(AECEnv):
             r.append(u)
             r2 = {n: r[i + 1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
             return [(0 if n not in nodes else r2[n]) for n in self.board.g.nodes()]
-        elif self.state_selection == GameState.Card:
+        elif self.board.state == GameState.Card:
             return np.random.randint(2)
-        elif self.state_selection == GameState.Attack:
+        elif self.board.state == GameState.Attack:
             edges = self.board.player_attack_edges(p)
             index = np.random.randint(len(edges))
             return edges[index]
-        elif self.state_selection == GameState.Move:
-            return np.random.randint(u)
-        elif self.state_selection == GameState.Fortify:
+        elif self.board.state == GameState.Move:
+            u = self.board.g.nodes[self.board.last_attack[1]]['units'] - 3
+            return np.random.randint(u) if u > 0 else 0
+        elif self.board.state == GameState.Fortify:
             cc = self.board.player_connected_components(p)
             branches = []
             potential_sources = []
@@ -125,7 +126,7 @@ class raw_env(AECEnv):
                     trg = c[index % len(c)] if index % len(c) < index // len(c) else c[(index + 1) % len(c)]
                     break
                 index -= b
-            num_unit = np.random.randint(self.board.g.nodes[src]['units'])
+            num_unit = np.random.randint(self.board.g.nodes[src]['units'] - 1)
             return src, trg, num_unit
 
     def render(self, mode="human"):
@@ -133,6 +134,7 @@ class raw_env(AECEnv):
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
         '''
+        plt.clf()
         G = self.board.g
         # pos = nx.spring_layout(G, seed=3113794652)  # positions for all nodes
         # pos = nx.kamada_kawai_layout(G)  # positions for all nodes
@@ -155,8 +157,8 @@ class raw_env(AECEnv):
 
             plt.tight_layout()
             plt.axis("off")
-            plt.ion()
-            plt.show()
+            plt.pause(0.001)
+
         else:
             print('Wait for it')
 
@@ -167,13 +169,12 @@ class raw_env(AECEnv):
         at any time after reset() is called.
         '''
         # observation of one agent is the previous state of the other
-        nodes_controlled = len([i for i in self.board.g.nodes(data='player_id') if i[1] == agent])
-        self.placement[agent] = max(3, nodes_controlled // 3)
+
         return {'board': self.board.g,
-                'my_card': self.board.player[agent].cards,
-                'placement': self.placement[agent],
-                'game_state': self.state_selection,
-                'cards': [len(p.cards) for p in self.board.player]}
+                'my_card': self.board.players[agent].cards,
+                'placement': self.board.players[agent].placement,
+                'game_state': self.board.state,
+                'cards': [len(p.cards) for p in self.board.players]}
 
     def close(self):
         '''
@@ -205,13 +206,12 @@ class raw_env(AECEnv):
         self.num_moves = 0
         self.placement = {agent: 3 for agent in self.agents}
         self.board.reset(len(self.agents), 20, 7)
+        self.turn_count = 1
         '''
         Our agent_selector utility allows easy cyclic stepping through the agents list.
         '''
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
-        self.state_selection = GameState.Start
-        print(self.agent_selection, self.state_selection)
 
     def reward(self, agent):
         return 0.0
@@ -219,20 +219,9 @@ class raw_env(AECEnv):
     def done(self, agent):
         return False
 
-    def can_fortify(self):
-        p = self.agent_selection
-        cc = self.board.player_connected_components(p)
-        branches = []
-        potential_sources = []
-        for c in cc:
-            potential_source = [node for node in c if self.board.g.nodes[node]['units'] >= 2]
-            branches.append(len(potential_source) * (len(c) - 1))
-            potential_sources.append(potential_source)
-        return sum(branches) > 0
-
     def validate_action(self, agent, state, action):
         p = agent
-        u = self.placement[p]
+        u = self.board.players[p].placement
         gn = lambda x: self.board.g.nodes[x]['name']
 
         if state == GameState.Reinforce:
@@ -247,16 +236,19 @@ class raw_env(AECEnv):
                     logger.error('selected node is not owned by player: node: {}, player: {}'.format(
                         self.board.g.nodes[node+1]['name'], p))
                     return False
-        elif self.state_selection == GameState.Card:
+        elif self.board.state == GameState.Card:
             return 0 <= action <= 1
-        elif self.state_selection == GameState.Attack:
+        elif self.board.state == GameState.Attack:
             edges = self.board.player_attack_edges(p)
             if action not in edges:
                 logger.error('Attack Can not be performed from {} to {}'.format(gn(action[0]), gn(action[1])))
                 return False
-        elif self.state_selection == GameState.Move:
-            return 0 <= action <= u
-        elif self.state_selection == GameState.Fortify:
+        elif self.board.state == GameState.Move:
+            u = max(0, self.board.g.nodes[self.board.last_attack[1]]['units'] - 3)
+            if action < 0 or action > u:
+                logger.error('Move out of bound: {} ~ {}'.format(action, u))
+                return False
+        elif self.board.state == GameState.Fortify:
             cc = self.board.player_connected_components(p)
             c = [c for c in cc if action[0] in c][0]
             if action[1] not in c:
@@ -266,21 +258,6 @@ class raw_env(AECEnv):
                 logger.error('Fortify Can not be more than source units!')
                 return False
         return True
-
-    def next_state(self, state, attack_succeed, attack_finished, game_over):
-        next_state = {
-            GameState.Start: GameState.Reinforce,
-            GameState.Reinforce: GameState.Attack,
-            GameState.Attack:
-                GameState.Move if attack_succeed
-                else GameState.Fortify if attack_finished and self.can_fortify()
-                else GameState.Reinforce if attack_finished
-                else GameState.Attack,
-            GameState.Move: GameState.Attack,
-            GameState.Fortify: GameState.Reinforce if not game_over else GameState.End
-        }
-
-        return next_state[state]
 
     def step(self, action):
         '''
@@ -300,7 +277,7 @@ class raw_env(AECEnv):
             return self._was_done_step(action)
 
         agent = self.agent_selection
-        state = self.state_selection
+        state = self.board.state
         logger.info('Player: {}, State: {}, Actions: {}'.format(agent, state, action))
         # the agent which stepped last had its _cumulative_rewards accounted for
         # (because it was returned by last()), so the _cumulative_rewards for this
@@ -314,10 +291,10 @@ class raw_env(AECEnv):
             exit(1)
         # stores action of current agent
 
-        attack_succeed = self.board.step(agent, state, action)
+        self.board.step(agent, state, action)
 
         # collect reward if it is the last agent to act
-        if self._agent_selector.is_last() and self.state_selection == GameState.Fortify:
+        if self._agent_selector.is_last() and self.board.state == GameState.Fortify:
             # rewards for all agents are placed in the .rewards dictionary
 
             self.rewards = {agent: self.reward(agent) for agent in self.agents}
@@ -331,9 +308,15 @@ class raw_env(AECEnv):
             self._clear_rewards()
 
         # selects the next agent.
-        self.agent_selection = self._agent_selector.next()
-        self.state_selection = self.next_state(state, attack_succeed, True, False)
+        if self.board.state == GameState.Reinforce:
+            self.turn_count += 1
+            self.agent_selection = self._agent_selector.next()
+            while len(self.board.player_nodes(self.agent_selection)) == 0:
+                self.dones[self.agent_selection] = True
+                self.agent_selection = self._agent_selector.next()
 
+        if self.board.state == GameState.End:
+            self.dones = {agent: True for agent in self.agents}
         # Adds .rewards to ._cumulative_rewards
         self._accumulate_rewards()
 
@@ -341,9 +324,17 @@ class raw_env(AECEnv):
 if __name__ == '__main__':
     e = env()
     e.reset()
-    e.render()
+    # e.render()
+    winner = -1
     for agent in e.agent_iter():
         obs, rew, done, info = e.last()
-        # action_space = e.action_spaces[agent][obs['game_state']]
+        if done:
+            continue
         e.step(e.unwrapped.sample())
+        if all(e.dones.values()):
+            winner = agent
+            break
         e.render()
+    # e.render()
+    plt.show()
+    logger.info('Done in {} Turn. Winner is Player {}'.format(e.unwrapped.turn_count, winner))
