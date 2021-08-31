@@ -1,259 +1,312 @@
 {
-  "name": "world",
-  "num_of_group": 6,
-  "num_of_cell": 42,
+  "info": {
+    "name": "world",
+    "num_of_group": 6,
+    "num_of_cell": 42,
+    "num_of_wild": 2,
+    "group_reward": {
+      "1": 7,
+      "2": 2,
+      "3": 3,
+      "4": 5,
+      "5": 7,
+      "6": 2
+    }
+  },
   "cells": [
     {
       "name": "Alaska",
       "group": "North America",
       "id": 1,
-      "gid": 1
+      "gid": 1,
+      "pos": [-1, 1.2]
     },
     {
       "name": "NW Territory",
       "group": "North America",
       "id": 2,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.8, 1]
     },
     {
       "name": "Green Land",
       "group": "North America",
       "id": 3,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.6, 1]
     },
     {
       "name": "Alberta",
       "group": "North America",
       "id": 4,
-      "gid": 1
+      "gid": 1,
+      "pos": [-1, 1.0]
     },
     {
       "name": "Ontario",
       "group": "North America",
       "id": 5,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.8, 0.8]
     },
     {
       "name": "Quebec",
       "group": "North America",
       "id": 6,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.6, 0.8]
     },
     {
       "name": "Central America",
       "group": "North America",
       "id": 7,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.8, 0.4]
     },
     {
       "name": "W USA",
       "group": "North America",
       "id": 8,
-      "gid": 1
+      "gid": 1,
+      "pos": [-1, 0.6]
     },
     {
       "name": "E USA",
       "group": "North America",
       "id": 9,
-      "gid": 1
+      "gid": 1,
+      "pos": [-0.6, 0.6]
     },
     {
       "name": "Venezuela",
       "group": "South America",
       "id": 10,
-      "gid": 2
+      "gid": 2,
+      "pos": [-0.8, -0.0]
     },
     {
       "name": "Peru",
       "group": "South America",
       "id": 11,
-      "gid": 2
+      "gid": 2,
+      "pos": [-1, -0.2]
     },
     {
       "name": "Brazil",
       "group": "South America",
       "id": 12,
-      "gid": 2
+      "gid": 2,
+      "pos": [-0.6, -0.2]
     },
     {
       "name": "Argentina",
       "group": "South America",
       "id": 13,
-      "gid": 2
+      "gid": 2,
+      "pos": [-0.8, -0.4]
     },
     {
       "name": "Egypt",
       "group": "Africa",
       "id": 14,
-      "gid": 3
+      "gid": 3,
+      "pos": [0.1, -0.0]
     },
     {
       "name": "N Africa",
       "group": "Africa",
       "id": 15,
-      "gid": 3
+      "gid": 3,
+      "pos": [-0.2,-0.0]
     },
     {
       "name": "E Africa",
       "group": "Africa",
       "id": 16,
-      "gid": 3
+      "gid": 3,
+      "pos": [0.1, -0.2]
     },
     {
       "name": "Congo",
       "group": "Africa",
       "id": 17,
-      "gid": 3
+      "gid": 3,
+      "pos": [-0.2, -0.2]
     },
     {
       "name": "S Africa",
       "group": "Africa",
       "id": 18,
-      "gid": 3
+      "gid": 3,
+      "pos": [-0.2, -0.4]
     },
     {
       "name": "Madagascar",
       "group": "Africa",
       "id": 19,
-      "gid": 3
+      "gid": 3,
+      "pos": [0.1, -0.4]
     },
     {
       "name": "Iceland",
       "group": "Europe",
       "id": 20,
-      "gid": 4
+      "gid": 4,
+      "pos": [-0.2, 1]
     },
     {
       "name": "Scandinavia",
       "group": "Europe",
       "id": 21,
-      "gid": 4
+      "gid": 4,
+      "pos": [0.1, 1.0]
     },
     {
       "name": "N Europe",
       "group": "Europe",
       "id": 22,
-      "gid": 4
+      "gid": 4,
+      "pos": [0.1, 0.8]
     },
     {
       "name": "W Europe",
       "group": "Europe",
       "id": 23,
-      "gid": 4
+      "gid": 4,
+      "pos": [-0.2, 0.6]
     },
     {
       "name": "S Europe",
       "group": "Europe",
       "id": 24,
-      "gid": 4
+      "gid": 4,
+      "pos": [0.1, 0.6]
     },
     {
       "name": "Ukraine",
       "group": "Europe",
       "id": 25,
-      "gid": 4
+      "gid": 4,
+      "pos": [0.3, 0.8]
     },
     {
       "name": "Britain",
       "group": "Europe",
       "id": 26,
-      "gid": 4
+      "gid": 4,
+      "pos": [-0.2, 0.8]
     },
     {
       "name": "Ural",
       "group": "Asia",
       "id": 27,
-      "gid": 5
+      "gid": 5,
+      "pos": [0.8, 0.8]
     },
     {
       "name": "Middle East",
       "group": "Asia",
       "id": 28,
-      "gid": 5
+      "gid": 5,
+      "pos": [0.8, 0.4]
     },
     {
       "name": "Afghanistan",
       "group": "Asia",
       "id": 29,
-      "gid": 5
+      "gid": 5,
+      "pos": [0.8, 0.6]
     },
     {
       "name": "India",
       "group": "Asia",
       "id": 30,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.0, 0.4]
     },
     {
       "name": "Siam",
       "group": "Asia",
       "id": 31,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.2, 0.4]
     },
     {
       "name": "China",
       "group": "Asia",
       "id": 32,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.1, 0.6]
     },
     {
       "name": "Japan",
       "group": "Asia",
       "id": 33,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.2, 1.2]
     },
     {
       "name": "Mongolia",
       "group": "Asia",
       "id": 34,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.2, 1.0]
     },
     {
       "name": "Irkutsk",
       "group": "Asia",
       "id": 35,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.0, 1.0]
     },
     {
       "name": "Yakutsk",
       "group": "Asia",
       "id": 36,
-      "gid": 5
+      "gid": 5,
+      "pos": [0.8, 1.0]
     },
     {
       "name": "Siberia",
       "group": "Asia",
       "id": 37,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.0, 0.8]
     },
     {
       "name": "Kamchatka",
       "group": "Asia",
       "id": 38,
-      "gid": 5
+      "gid": 5,
+      "pos": [1.0, 1.2]
     },
     {
       "name": "W Australia",
       "group": "Australia",
       "id": 39,
-      "gid": 6
+      "gid": 6,
+      "pos": [1.2, -0.4]
     },
     {
       "name": "E Australia",
       "group": "Australia",
       "id": 40,
-      "gid": 6
+      "gid": 6,
+      "pos": [0.9, -0.4]
     },
     {
       "name": "Indonesia",
       "group": "Australia",
       "id": 41,
-      "gid": 6
+      "gid": 6,
+      "pos": [1.2, -0.2]
     },
     {
       "name": "New Guinea",
       "group": "Australia",
       "id": 42,
-      "gid": 6
+      "gid": 6,
+      "pos": [0.9, -0.2]
     }
   ],
   "edges": [
@@ -340,49 +393,5 @@
     [39, 42],
     [40, 42],
     [41, 42]
-  ],
-  "pos": [
-    [-1, 1.2],
-    [-0.8, 1],
-    [-0.6, 1],
-    [-1, 1.0],
-    [-0.8, 0.8],
-    [-0.6, 0.8],
-    [-0.8, 0.4],
-    [-1, 0.6],
-    [-0.6, 0.6],
-    [-0.8, -0.0],
-    [-1, -0.2],
-    [-0.6, -0.2],
-    [-0.8, -0.4],
-    [0.1, -0.0],
-    [-0.2,-0.0],
-    [0.1, -0.2],
-    [-0.2, -0.2],
-    [-0.2, -0.4],
-    [0.1, -0.4],
-    [-0.2, 1],
-    [0.1, 1],
-    [0.1, 0.8],
-    [-0.2, 0.6],
-    [0.1, 0.6],
-    [0.3, 0.8],
-    [-0.2, 0.8],
-    [0.8, 0.8],
-    [0.8, 0.4],
-    [0.8, 0.6],
-    [1.0, 0.4],
-    [1.2, 0.4],
-    [1.1, 0.6],
-    [1.2, 1.2],
-    [1.2, 1.0],
-    [1.0, 1.0],
-    [0.8, 1],
-    [1.0, 0.8],
-    [1.0, 1.2],
-    [1.2, -0.4],
-    [0.9, -0.4],
-    [1.2, -0.2],
-    [0.9, -0.2]
   ]
 }

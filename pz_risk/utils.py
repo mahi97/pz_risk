@@ -3,12 +3,12 @@
 from loguru import logger
 import random
 import numpy as np
+from collections import Iterable
 
 rng = np.random.default_rng()
 sided_die = 6
 attack_max = 3
 defend_max = 2
-attack_until_threshold = 2
 
 
 def single_roll(attack: int, defend: int) -> (int, int):
@@ -21,3 +21,12 @@ def single_roll(attack: int, defend: int) -> (int, int):
     attack_loss = max_loss - attack_wins
     defend_loss = attack_wins
     return attack_loss, defend_loss
+
+
+def flatten(lis):
+    for item in lis:
+        if isinstance(item, Iterable) and not isinstance(item, str):
+            for x in flatten(item):
+                yield x
+        else:
+            yield item
