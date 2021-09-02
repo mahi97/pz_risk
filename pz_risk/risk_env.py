@@ -10,14 +10,13 @@ import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
 
-from pz_risk.core.board import Board, BOARDS
-from pz_risk.core.gamestate import GameState
+from core.board import Board, BOARDS
+from core.gamestate import GameState
 
 from loguru import logger
 
 from utils import *
 from agents.sampling import SAMPLING
-
 
 NUM_ITERS = 100
 MAX_CARD = 10
@@ -77,8 +76,8 @@ class raw_env(AECEnv):
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
         self.action_spaces = {agent: {GameState.Reinforce: MultiDiscrete([n_nodes, 100]),
-                                      GameState.Attack: Discrete(n_edges),  # +1 for Skip
-                                      GameState.Fortify: MultiDiscrete([n_nodes, n_nodes, 100, 2]),  # Last dim for Skip
+                                      GameState.Attack: MultiDiscrete([2, n_edges]),  # +1 for Skip
+                                      GameState.Fortify: MultiDiscrete([2, n_nodes, n_nodes, 100]),  # Last dim for Skip
                                       GameState.StartTurn: Discrete(1),
                                       GameState.EndTurn: Discrete(1),
                                       GameState.Card: Discrete(2),
@@ -98,15 +97,64 @@ class raw_env(AECEnv):
         self.placement = {}
         self.num_moves = 1
 
+        self.land_hist = {a: [] for a in self.possible_agents}
+        self.unit_hist = {a: [] for a in self.possible_agents}
+        self.place_hist = {a: [] for a in self.possible_agents}
+
     def sample(self):
         return SAMPLING[self.board.state](self.board, self.agent_selection)
+
+    def render_info(self, mode="human"):
+        fig = plt.figure(1, figsize=(7, 7))
+        plt.clf()
+
+        ax1 = fig.add_subplot(221)
+        ax2 = fig.add_subplot(222)
+        ax3 = fig.add_subplot(223)
+        ax4 = fig.add_subplot(224)
+        for a in self.possible_agents:
+            self.land_hist[a].append(len(self.board.player_nodes(a)))
+            self.unit_hist[a].append(self.board.player_units(a))
+            self.place_hist[a].append(self.board.players[a].placement)
+
+        for a in self.possible_agents:
+            ax1.plot(self.land_hist[a], COLORS[a])
+            ax1.set_title('# of Lands')
+            ax2.plot(self.unit_hist[a], COLORS[a])
+            ax2.set_title('# of Units')
+            ax3.plot(self.place_hist[a], COLORS[a])
+            ax3.set_title('# of Reinforce')
+            player_circle = [plt.Circle((0.12 + i*0.15, 0.8), radius=0.12 if a == self.agent_selection else 0.1, color=COLORS[a]) for i, a in enumerate(self.agents)]
+            [ax4.add_patch(patch) for patch in player_circle]
+            game_rect = [(plt.Rectangle((-0.15 + i * 0.15, 0.3), width=0.1, height=0.3, color='green'), a) for i, a in enumerate(GameState)]
+            [ax4.add_patch(patch) for patch, state in game_rect if state.value <= self.board.state.value]
+            ax4.text(0, 0.1, 'Game State: {}'.format(self.board.state.name), fontsize=15)
+            # ax4.plot(x, -y, 'tab:red')
+            # ax4.set_title('Axis [1, 1]')
+
+        # for ax in axs.flat:
+        #     ax.set(xlabel='x-label', ylabel='y-label')
+        #
+        # # Hide x labels and tick labels for top plots and y ticks for right plots.
+        # for ax in axs.flat:
+        #     ax.label_outer()
+        # plt.text(-1, 1,
+        #          r'Current Player: {}: {}'.format(self.agent_selection, COLORS[self.agent_selection][4:].title()),
+        #          fontsize=10)
+        # plt.text(-1, 1, r'Current Player: {}: {}'.format(self.agent_selection, COLORS[self.agent_selection][4:].title()),
+        #          fontsize=10)
+        plt.tight_layout()
+        plt.axis("off")
+        plt.pause(0.001)
 
     def render(self, mode="human"):
         '''
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
         '''
+        plt.figure(0)
         plt.clf()
+
         G = self.board.g
         # pos = nx.spring_layout(G, seed=3113794652)  # positions for all nodes
         # pos = nx.kamada_kawai_layout(G)  # positions for all nodes
@@ -125,11 +173,10 @@ class raw_env(AECEnv):
             # some math labels
             labels = {c[0]: c[1]['units'] for c in G.nodes(data=True)}
             nx.draw_networkx_labels(G, pos, labels, font_size=22, font_color="black")
-
             plt.tight_layout()
             plt.axis("off")
             plt.pause(0.001)
-
+            self.render_info()
         else:
             print('Wait for it')
 
@@ -208,8 +255,11 @@ class raw_env(AECEnv):
             return 0 <= action <= 1
         elif self.board.state == GameState.Attack:
             edges = self.board.player_attack_edges(player)
-            if action not in edges:
-                logger.error('Attack Can not be performed from {} to {}'.format(gn(action[0]), gn(action[1])))
+            if action[0] > 1:
+                logger.error('Attack Finished should be 0 or 1: {}'.format(action[0]))
+                return False
+            if action[1] not in edges:
+                logger.error('Attack Can not be performed from {} to {}'.format(gn(action[1][0]), gn(action[1][1])))
                 return False
         elif self.board.state == GameState.Move:
             u = max(0, self.board.g.nodes[self.board.last_attack[1]]['units'] - 3)
@@ -218,11 +268,14 @@ class raw_env(AECEnv):
                 return False
         elif self.board.state == GameState.Fortify:
             cc = self.board.player_connected_components(player)
-            c = [c for c in cc if action[0] in c][0]
-            if action[1] not in c:
-                logger.error('Fortify Can not be performed from {} to {}'.format(gn(action[0]), gn(action[1])))
+            c = [c for c in cc if action[1] in c][0]
+            if action[0] > 1:
+                logger.error('Skip should be 0 or 1: {}'.format(action[0]))
                 return False
-            if action[2] > self.board.g.nodes[action[0]]['units']:
+            if action[2] not in c:
+                logger.error('Fortify Can not be performed from {} to {}'.format(gn(action[1]), gn(action[2])))
+                return False
+            if action[3] > self.board.g.nodes[action[1]]['units']:
                 logger.error('Fortify Can not be more than source units!')
                 return False
         return True
@@ -298,7 +351,8 @@ if __name__ == '__main__':
         if all(e.dones.values()):
             winner = agent
             break
-        # e.render()
+        e.render()
     # e.render()
-    # plt.show()
-    logger.info('Done in {} Turn. Winner is Player {}'.format(e.unwrapped.num_turns, winner))
+    plt.show()
+    logger.info('Done in {} Turns and {} Moves. Winner is Player {}'
+                .format(e.unwrapped.num_turns, e.unwrapped.num_moves, winner))
