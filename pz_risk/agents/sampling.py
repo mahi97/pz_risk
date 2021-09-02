@@ -2,17 +2,21 @@ import math
 import random
 import numpy as np
 
-from pz_risk.core.gamestate import GameState
+from core.gamestate import GameState
 
 
 def sample_reinforce(board, player):
     num_units = board.players[player].placement
     nodes = board.player_nodes(player)
-    branches = math.comb(num_units + len(nodes) - 1, num_units)
-    index = np.random.randint(branches)
-    r = sorted([(index // num_units ** i) % num_units for i in range(len(nodes))])
-    r.append(num_units)
-    r2 = {n: r[i + 1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
+    r2 = {n: 0 for n in nodes}
+    for _ in range(num_units):
+        i = np.random.choice(nodes)
+        r2[i] += 1
+    # branches = math.comb(num_units + len(nodes) - 1, num_units)
+    # index = np.random.randint(branches)
+    # r = sorted([(index // num_units ** i) % num_units for i in range(len(nodes))])
+    # r.append(num_units)
+    # r2 = {n: r[i + 1] - r[i] for i, n in zip(range(len(nodes)), random.sample(nodes, len(nodes)))}
     return [(0 if n not in nodes else r2[n]) for n in board.g.nodes()]
 
 
@@ -23,7 +27,8 @@ def sample_card(board, player):
 def sample_attack(board, player):
     edges = board.player_attack_edges(player)
     index = np.random.randint(len(edges))
-    return edges[index]
+    attack_finished = np.random.randint(10) > 7
+    return attack_finished, edges[index]
 
 
 def sample_move(board, player):
@@ -50,7 +55,8 @@ def sample_fortify(board, player):
             break
         index -= b
     num_unit = np.random.randint(board.g.nodes[src]['units'] - 1)
-    return src, trg, num_unit
+    skip = np.random.randint(10) > 7
+    return skip, src, trg, num_unit
 
 
 SAMPLING = {
