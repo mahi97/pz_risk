@@ -64,5 +64,6 @@ SAMPLING = {
     GameState.Attack: sample_attack,
     GameState.Fortify: sample_fortify,
     GameState.Card: sample_card,
-    GameState.Move: sample_move
+    GameState.Move: sample_move,
+    GameState.EndTurn: lambda b, p: None
 }
