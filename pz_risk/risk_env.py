@@ -1,10 +1,12 @@
 import math
 import random
 
-from gym.spaces import Discrete, MultiDiscrete, Tuple, Dict, Box
+from gym.spaces import Discrete, MultiDiscrete, Dict
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector
 from pettingzoo.utils import wrappers
+
+import wrappers as risk_wrappers
 
 import numpy as np
 import networkx as nx
@@ -39,14 +41,14 @@ def env():
     to provide sane error messages. You can find full documentation for these methods
     elsewhere in the developer documentation.
     """
-    env = raw_env()
+    env = RiskEnv()
     env = wrappers.CaptureStdoutWrapper(env)
-    # env = wrappers.AssertOutOfBoundsWrapper(env)
+    env = risk_wrappers.AssertInvalidActionsWrapper(env)
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
 
-class raw_env(AECEnv):
+class RiskEnv(AECEnv):
     """
     The metadata holds environment constants. From gym, we inherit the "render.modes",
     metadata which specifies which modes can be put into the render() method.
@@ -112,10 +114,7 @@ class raw_env(AECEnv):
         ax2 = fig.add_subplot(222)
         ax3 = fig.add_subplot(223)
         ax4 = fig.add_subplot(224)
-        for a in self.possible_agents:
-            self.land_hist[a].append(len(self.board.player_nodes(a)))
-            self.unit_hist[a].append(self.board.player_units(a))
-            self.place_hist[a].append(self.board.players[a].placement)
+
 
         for a in self.possible_agents:
             ax1.plot(self.land_hist[a], COLORS[a])
@@ -129,20 +128,7 @@ class raw_env(AECEnv):
             game_rect = [(plt.Rectangle((-0.15 + i * 0.15, 0.3), width=0.1, height=0.3, color='green'), a) for i, a in enumerate(GameState)]
             [ax4.add_patch(patch) for patch, state in game_rect if state.value <= self.board.state.value]
             ax4.text(0, 0.1, 'Game State: {}'.format(self.board.state.name), fontsize=15)
-            # ax4.plot(x, -y, 'tab:red')
-            # ax4.set_title('Axis [1, 1]')
 
-        # for ax in axs.flat:
-        #     ax.set(xlabel='x-label', ylabel='y-label')
-        #
-        # # Hide x labels and tick labels for top plots and y ticks for right plots.
-        # for ax in axs.flat:
-        #     ax.label_outer()
-        # plt.text(-1, 1,
-        #          r'Current Player: {}: {}'.format(self.agent_selection, COLORS[self.agent_selection][4:].title()),
-        #          fontsize=10)
-        # plt.text(-1, 1, r'Current Player: {}: {}'.format(self.agent_selection, COLORS[self.agent_selection][4:].title()),
-        #          fontsize=10)
         plt.tight_layout()
         plt.axis("off")
         plt.pause(0.001)
@@ -236,50 +222,6 @@ class raw_env(AECEnv):
     def done(self, agent):
         return False
 
-    def validate_action(self, player, state, action):
-        u = self.board.players[player].placement
-        gn = lambda x: self.board.g[x]['name']
-        if state == GameState.Reinforce:
-            if sum(action) != u:
-                logger.error('sum(action) != player placement: {} != {}'.format(sum(action), u))
-                return False
-            if min(action) < 0:
-                logger.error('min(action) is less than zero! {}'.format(min(action)))
-                return False
-            for node, units in enumerate(action):
-                if units > 0 and node + 1 not in self.board.player_nodes(agent):
-                    logger.error('selected node is not owned by player: node: {}, player: {}'.format(
-                        self.board.g.nodes[node + 1]['name'], player))
-                    return False
-        elif self.board.state == GameState.Card:
-            return 0 <= action <= 1
-        elif self.board.state == GameState.Attack:
-            edges = self.board.player_attack_edges(player)
-            if action[0] > 1:
-                logger.error('Attack Finished should be 0 or 1: {}'.format(action[0]))
-                return False
-            if action[1] not in edges:
-                logger.error('Attack Can not be performed from {} to {}'.format(gn(action[1][0]), gn(action[1][1])))
-                return False
-        elif self.board.state == GameState.Move:
-            u = max(0, self.board.g.nodes[self.board.last_attack[1]]['units'] - 3)
-            if action < 0 or action > u:
-                logger.error('Move out of bound: {} ~ {}'.format(action, u))
-                return False
-        elif self.board.state == GameState.Fortify:
-            cc = self.board.player_connected_components(player)
-            c = [c for c in cc if action[1] in c][0]
-            if action[0] > 1:
-                logger.error('Skip should be 0 or 1: {}'.format(action[0]))
-                return False
-            if action[2] not in c:
-                logger.error('Fortify Can not be performed from {} to {}'.format(gn(action[1]), gn(action[2])))
-                return False
-            if action[3] > self.board.g.nodes[action[1]]['units']:
-                logger.error('Fortify Can not be more than source units!')
-                return False
-        return True
-
     def step(self, action):
         """
         step(action) takes in an action for the current agent (specified by
@@ -302,11 +244,6 @@ class raw_env(AECEnv):
         logger.info('Player: {}, State: {}, Actions: {}'.format(agent, state, action))
 
         self._cumulative_rewards[agent] = 0
-
-        valid = self.validate_action(agent, state, action)
-        if not valid:
-            logger.error('Action is not valid! {}'.format(action))
-            exit(1)
 
         self.board.step(agent, action)
 
@@ -348,11 +285,15 @@ if __name__ == '__main__':
         if done:
             continue
         e.step(e.unwrapped.sample())
+        for a in e.possible_agents:
+            e.unwrapped.land_hist[a].append(len(e.unwrapped.board.player_nodes(a)))
+            e.unwrapped.unit_hist[a].append(e.unwrapped.board.player_units(a))
+            e.unwrapped.place_hist[a].append(e.unwrapped.board.players[a].placement)
         if all(e.dones.values()):
             winner = agent
             break
         e.render()
-    # e.render()
+    e.render()
     plt.show()
     logger.info('Done in {} Turns and {} Moves. Winner is Player {}'
                 .format(e.unwrapped.num_turns, e.unwrapped.num_moves, winner))

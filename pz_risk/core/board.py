@@ -178,7 +178,7 @@ class Board:
             match_type = CardType.Artillery if ct[CardType.Artillery] >= 3 - cnt\
                 else CardType.Cavalry if ct[CardType.Cavalry] >= 3 - cnt\
                 else CardType.Infantry
-            used += [self.players[player].cards[match_type].pop(-1) for _ in range(3 - cnt)]
+            used += [self.players[player].cards[match_type].pop(-1) for _ in range(3 - cnt) if len(self.players[player].cards[match_type])]
         self.players[player].placement += CARD_FIX_SCORE[match_type]
         for c in used:
             c.owner = -1
@@ -255,5 +255,5 @@ def register_map(name, filepath):
 
     BOARDS[name] = Board(g, m['info'])
 
-
+print(os.getcwd())
 register_map('world', './maps/world.json')
