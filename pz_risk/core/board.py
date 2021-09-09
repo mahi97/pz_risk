@@ -56,12 +56,7 @@ class Board:
     def calc_units(self, player):
         nodes_controlled = len([i for i in self.g.nodes(data='player') if i[1] == player])
         node_unit = max(3, nodes_controlled // 3)
-
-        group = {gid + 1: True for gid in range(self.info['num_of_group'])}
-        for n in self.g.nodes(data=True):
-            if n[1]['player'] != player:
-                group[n[1]['gid']] = False
-        group_unit = sum([self.info['group_reward'][str(k)] for k, v in group.items() if v])
+        group_unit = self.player_group_reward(player)
 
         return group_unit + node_unit
 
@@ -96,6 +91,13 @@ class Board:
 
     def player_units(self, player):
         return sum([n[1]['units'] for n in self.g.nodes(data=True) if n[1]['player'] == player])
+
+    def player_group_reward(self, player):
+        group = {gid + 1: True for gid in range(self.info['num_of_group'])}
+        for n in self.g.nodes(data=True):
+            if n[1]['player'] != player:
+                group[n[1]['gid']] = False
+        return sum([self.info['group_reward'][str(k)] for k, v in group.items() if v])
 
     def DFS(self, node, player, visited):
         gp = lambda x: self.g.nodes[x]['player']
