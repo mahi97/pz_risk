@@ -77,7 +77,7 @@ class RiskEnv(AECEnv):
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
-        self.action_spaces = {agent: {GameState.Reinforce: MultiDiscrete([n_nodes, 100]),
+        self.action_spaces = {agent: {GameState.Reinforce: Discrete(n_nodes),
                                       GameState.Attack: MultiDiscrete([2, n_edges]),  # +1 for Skip
                                       GameState.Fortify: MultiDiscrete([2, n_nodes, n_nodes, 100]),  # Last dim for Skip
                                       GameState.StartTurn: Discrete(1),
@@ -115,7 +115,6 @@ class RiskEnv(AECEnv):
         ax3 = fig.add_subplot(223)
         ax4 = fig.add_subplot(224)
 
-
         for a in self.possible_agents:
             ax1.plot(self.land_hist[a], COLORS[a])
             ax1.set_title('# of Lands')
@@ -123,9 +122,12 @@ class RiskEnv(AECEnv):
             ax2.set_title('# of Units')
             ax3.plot(self.place_hist[a], COLORS[a])
             ax3.set_title('# of Reinforce')
-            player_circle = [plt.Circle((0.12 + i*0.15, 0.8), radius=0.12 if a == self.agent_selection else 0.1, color=COLORS[a]) for i, a in enumerate(self.agents)]
+            player_circle = [
+                plt.Circle((0.12 + i * 0.15, 0.8), radius=0.12 if a == self.agent_selection else 0.1, color=COLORS[a])
+                for i, a in enumerate(self.agents)]
             [ax4.add_patch(patch) for patch in player_circle]
-            game_rect = [(plt.Rectangle((-0.15 + i * 0.15, 0.3), width=0.1, height=0.3, color='green'), a) for i, a in enumerate(GameState)]
+            game_rect = [(plt.Rectangle((-0.15 + i * 0.15, 0.3), width=0.1, height=0.3, color='green'), a) for i, a in
+                         enumerate(GameState)]
             [ax4.add_patch(patch) for patch, state in game_rect if state.value <= self.board.state.value]
             ax4.text(0, 0.1, 'Game State: {}'.format(self.board.state.name), fontsize=15)
 
@@ -174,7 +176,7 @@ class RiskEnv(AECEnv):
         '''
         # observation of one agent is the previous state of the other
 
-        return {'board': self.board.g,
+        return {'board': self.board,
                 'my_card': self.board.players[agent].cards,
                 'placement': self.board.players[agent].placement,
                 'game_state': self.board.state,
@@ -288,12 +290,12 @@ if __name__ == '__main__':
         for a in e.possible_agents:
             e.unwrapped.land_hist[a].append(len(e.unwrapped.board.player_nodes(a)))
             e.unwrapped.unit_hist[a].append(e.unwrapped.board.player_units(a))
-            e.unwrapped.place_hist[a].append(e.unwrapped.board.players[a].placement)
+            e.unwrapped.place_hist[a].append(e.unwrapped.board.calc_units(a))
         if all(e.dones.values()):
             winner = agent
             break
-        e.render()
-    e.render()
-    plt.show()
+        # e.render()
+    # e.render()
+    # plt.show()
     logger.info('Done in {} Turns and {} Moves. Winner is Player {}'
                 .format(e.unwrapped.num_turns, e.unwrapped.num_moves, winner))

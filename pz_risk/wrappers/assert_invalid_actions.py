@@ -18,17 +18,18 @@ class AssertInvalidActionsWrapper(BaseWrapper):
         u = self.board.players[player].placement
         gn = lambda x: self.board.g[x]['name']
         if state == GameState.Reinforce:
-            assert sum(action) == u, 'sum(action) != player placement: {} != {}'.format(sum(action), u)
-            assert min(action) >= 0, 'min(action) is less than zero! {}'.format(min(action))
-            for node, units in enumerate(action):
-                assert units <= 0 or node + 1 in self.board.player_nodes(player), \
-                    'selected node is not owned by player: node: {}, player: {}'.format(self.board.g.nodes[node + 1]['name'], player)
+            # assert sum(action) == u, 'sum(action) != player placement: {} != {}'.format(sum(action), u)
+            # assert min(action) >= 0, 'min(action) is less than zero! {}'.format(min(action))
+            # for node, units in enumerate(action):
+            assert action in self.board.player_nodes(player), \
+                'selected node is not owned by player: node: {}, player: {}'.format(gn(action), player)
         elif state == GameState.Card:
             assert 0 <= action <= 1, 'Card Action should be 0 or 1: {}'.format(action)
         elif state == GameState.Attack:
             edges = self.board.player_attack_edges(player)
             assert action[0] <= 1, 'Attack Finished should be 0 or 1: {}'.format(action[0])
-            assert action[1] in edges, 'Attack Can not be performed from {} to {}'.format(gn(action[1][0]), gn(action[1][1]))
+            if action[0] == 0:
+                assert action[1] in edges, 'Attack Can not be performed from {} to {}'.format(gn(action[1][0]), gn(action[1][1]))
         elif state == GameState.Move:
             u = max(0, self.board.g.nodes[self.board.last_attack[1]]['units'] - 3)
             assert 0 <= action <= u, 'Move out of bound: {} ~ {}'.format(action, u)

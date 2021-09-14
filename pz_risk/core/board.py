@@ -65,7 +65,8 @@ class Board:
             GameState.StartTurn: GameState.Card if self.can_card(player) else GameState.Reinforce,
             GameState.Card: GameState.Reinforce,
             GameState.Reinforce:
-                GameState.Attack if self.can_attack(player)
+                GameState.Reinforce if self.players[player].placement > 0
+                else GameState.Attack if self.can_attack(player)
                 else GameState.Fortify if self.can_fortify(player)
                 else GameState.StartTurn,
             GameState.Attack:
@@ -192,7 +193,7 @@ class Board:
         self.players[player].cards[card.type].append(card)
         card.owner = player
 
-    def step(self, agent, actions):
+    def step(self, agent, actions, left=None):
         attack_succeed = False
         attack_finished = False
         if self.state == GameState.StartTurn:
@@ -200,9 +201,8 @@ class Board:
             self.next_state(agent, self.state, False, False, False)
             return
         elif self.state == GameState.Reinforce:
-            for i, action in enumerate(actions):
-                current_unit = self.g.nodes[i + 1]['units']
-                nx.set_node_attributes(self.g, {i + 1: int(current_unit + action)}, 'units')
+            self.g.nodes[actions]['units'] += 1
+            self.players[agent].placement -= 1
         elif self.state == GameState.Card:
             if actions:
                 self.apply_best_match(agent)
@@ -213,7 +213,11 @@ class Board:
                 trg = actions[1][1]
                 src_unit = self.g.nodes[src]['units']
                 trg_unit = self.g.nodes[trg]['units']
-                src_loss, trg_loss = single_roll(src_unit - 1, trg_unit)
+                if left:
+                    src_loss = min(src_unit, src_unit - left)
+                    trg_loss = min(trg_unit, trg_unit + left)
+                else:
+                    src_loss, trg_loss = single_roll(src_unit - 1, trg_unit)
                 nx.set_node_attributes(self.g, {src: int(src_unit - src_loss)}, 'units')
                 nx.set_node_attributes(self.g, {trg: int(trg_unit - trg_loss)}, 'units')
 
