@@ -1,13 +1,14 @@
 from risk_env import env
-from agents.greedy import GreedyAgent
-from agents.random import RandomAgent
+from agents import GreedyAgent, RandomAgent, ModelAgent
 from loguru import logger
+import matplotlib.pyplot as plt
 
 e = env()
 e.reset()
 
 players = [GreedyAgent(i) for i in range(2)]
-players += [RandomAgent(2 + i) for i in range(4)]
+players += [GreedyAgent(2 + i) for i in range(2)]
+players += [RandomAgent(4 + i) for i in range(2)]
 winner = -1
 for agent in e.agent_iter():
     obs, rew, done, info = e.last()
