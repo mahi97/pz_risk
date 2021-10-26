@@ -1,0 +1,49 @@
+{
+  "info": {
+    "name": "4node",
+    "num_of_groups": 1,
+    "num_of_cell": 4,
+    "num_of_wild": 2,
+    "num_of_unit": 5,
+    "group_reward": {
+      "1": 0
+    }
+  },
+  "cells": [
+    {
+      "name": "Alaska",
+      "group": "North America",
+      "id": 1,
+      "gid": 1,
+      "pos": [-1, 0]
+    },
+    {
+      "name": "NW Territory",
+      "group": "North America",
+      "id": 2,
+      "gid": 1,
+      "pos": [0, 1]
+    },
+    {
+      "name": "Green Land",
+      "group": "North America",
+      "id": 3,
+      "gid": 1,
+      "pos": [0, -1]
+    },
+    {
+      "name": "Alberta",
+      "group": "North America",
+      "id": 4,
+      "gid": 1,
+      "pos": [1, 0]
+    }
+  ],
+  "edges": [
+    [1, 2],
+    [1, 3],
+    [2, 3],
+    [2, 4],
+    [3, 4]
+  ]
+}
