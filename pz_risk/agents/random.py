@@ -11,4 +11,4 @@ class RandomAgent(BaseAgent):
         pass
 
     def act(self, state):
-        return SAMPLING[state['game_state']](state['board'], self.player_id)
+        return SAMPLING[state.state](state, self.player_id)

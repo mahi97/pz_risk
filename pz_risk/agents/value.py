@@ -7,12 +7,12 @@ from copy import deepcopy
 
 # From https://web.stanford.edu/~guertin/risk.notes.html
 win_rate = np.array([
-    [[0.417, 0.583, 0.],        # 1 vs 1
-     [0.255, 0.745, 0.]],       # 1 vs 2
-    [[0.579, 0.421, 0.],      # 2 vs 1
-     [0.228, 0.324, 0.448]],    # 2 vs 2
-    [[0.660, 0.340, 0.],      # 3 vs 1
-     [0.371, 0.336, 0.293]]   # 3 vs 2
+    [[0.417, 0.583, 0.],  # 1 vs 1
+     [0.255, 0.745, 0.]],  # 1 vs 2
+    [[0.579, 0.421, 0.],  # 2 vs 1
+     [0.228, 0.324, 0.448]],  # 2 vs 2
+    [[0.660, 0.340, 0.],  # 3 vs 1
+     [0.371, 0.336, 0.293]]  # 3 vs 2
 ])
 
 d3 = {}
@@ -69,9 +69,9 @@ def get_future(dist, mode='safe', risk=0.0):
         max_index = np.argmax([d[1] for d in dist])
         return dist[max_index][0]
     elif mode == 'two':
-        left = [d[1] for d in dist if d[1] < 0]
+        left = [d[1] for d in dist if d[1] <= 0]
         right = [d[1] for d in dist if d[1] > 0]
-        left_score = dist[np.argmax(left)][0] * sum(left)
+        left_score = dist[np.argmax(left)][0] * (sum(left) + risk)
         right_score = dist[np.argmax(right)][0] * sum(right)
         return left_score + right_score
     elif mode == 'all':
@@ -80,11 +80,14 @@ def get_future(dist, mode='safe', risk=0.0):
 
 
 def manual_value(board, player):
-    num_lands = len(board.player_nodes(player)) * 5
-    num_units = board.player_units(player)
-    group_reward = board.player_group_reward(player) * 10
+    my_lands = len(board.player_nodes(player))
+    opp_lands = max([len(board.player_nodes(p)) for p in range(6) if p != player])
+    my_units = board.player_units(player)
+    opp_units = max([board.player_units(p) for p in range(6) if p != player])
+    my_group_reward = board.player_group_reward(player)
+    opp_group_reward = max([board.player_group_reward(p) for p in range(6) if p != player])
     num_cards = sum([len(c) for c in board.players[player].cards.values()])
-    return num_lands + num_units + group_reward + num_cards
+    return my_units + my_lands * 3 + my_group_reward * 10 + num_cards  # (my_lands - opp_lands) + (my_group_reward - opp_group_reward)*2
 
 
 def man_q_deterministic(board, player, action):
@@ -93,21 +96,30 @@ def man_q_deterministic(board, player, action):
     return manual_value(sim, player)
 
 
-def man_q_attack(board, player, action):
+def get_attack_dist(board, action):
     attack_finished = action[0]
-    sim = deepcopy(board)
+    dist = []
     if not attack_finished:
         src = action[1][0]
         trg = action[1][1]
         src_unit = board.g.nodes[src]['units']
         trg_unit = board.g.nodes[trg]['units']
-        dist = [(i, get_chance(src_unit, trg_unit, i)) for i in range(-trg_unit, src_unit+1)]
-        left = get_future(dist, mode='most')
+        dist = [(i, get_chance(src_unit, trg_unit, i)) for i in range(-trg_unit, src_unit + 1)]
+    return dist
+
+
+def man_q_attack(board, player, action):
+    sim = deepcopy(board)
+    dist = get_attack_dist(board, action)
+    if len(dist) > 0:
+        left = get_future(dist, mode='all')
         sim.step(player, action, left)
+    else:
+        sim.step(player, action)
     return manual_value(sim, player)
 
 
-def manual_q(state, player, action):
+def manual_q(board, player, action):
     Q = {
         GameState.Reinforce: man_q_deterministic,
         GameState.Attack: man_q_attack,
@@ -117,8 +129,8 @@ def manual_q(state, player, action):
         GameState.EndTurn: lambda b, p: None
     }
 
-    return Q[state['game_state']](state['board'], player, action)
+    return Q[board.state](board, player, action)
 
 
 def manual_advantage(state, player, action):
-    return manual_q(state, player, action) - manual_value(state['board'], player)
+    return manual_q(state, player, action) - manual_value(state, player)
