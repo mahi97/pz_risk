@@ -1,8 +1,9 @@
 {
   "info": {
     "name": "world",
-    "num_of_group": 6,
+    "num_of_groups": 1,
     "num_of_cell": 42,
+    "num_of_unit": 20,
     "num_of_wild": 2,
     "group_reward": {
       "1": 7,
