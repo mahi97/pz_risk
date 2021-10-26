@@ -1,7 +1,7 @@
 import math
 import random
 
-from gym.spaces import Discrete, MultiDiscrete, Dict
+from gym.spaces import Discrete, MultiDiscrete, Dict, MultiBinary, Box, Tuple
 from pettingzoo import AECEnv
 from pettingzoo.utils import agent_selector
 from pettingzoo.utils import wrappers
@@ -16,6 +16,7 @@ from core.board import Board, BOARDS
 from core.gamestate import GameState
 
 from loguru import logger
+from copy import deepcopy
 
 from utils import *
 from agents.sampling import SAMPLING
@@ -33,7 +34,7 @@ COLORS = [
 ]
 
 
-def env():
+def env(n_agent=6, board_name='world'):
     """
     The env function wraps the environment in 3 wrappers by default. These
     wrappers contain logic that is common to many pettingzoo environments.
@@ -41,7 +42,7 @@ def env():
     to provide sane error messages. You can find full documentation for these methods
     elsewhere in the developer documentation.
     """
-    env = RiskEnv()
+    env = RiskEnv(n_agent, board_name)
     env = wrappers.CaptureStdoutWrapper(env)
     env = risk_wrappers.AssertInvalidActionsWrapper(env)
     env = wrappers.OrderEnforcingWrapper(env)
@@ -58,7 +59,7 @@ class RiskEnv(AECEnv):
     metadata = {'render.modes': ['human'], "name": "rps_v2"}
 
     def __init__(self, n_agent=6, board_name='world'):
-        '''
+        """
         - n_agent: Number of Agent
         - board: ['test', 'world', 'world2']
         The init method takes in environment arguments and
@@ -68,27 +69,29 @@ class RiskEnv(AECEnv):
         - observation_spaces
 
         These attributes should not be changed after initialization.
-        '''
+        """
         super().__init__()
         self.board = BOARDS[board_name]
-        n_nodes = self.board.g.number_of_nodes()
-        n_edges = self.board.g.number_of_edges()
+        self.n_nodes = self.board.g.number_of_nodes()
+        self.n_edges = self.board.g.number_of_edges()
+        self.n_grps = self.board.n_grps
+        self.n_cards = self.board.n_cards
+        self.n_agents = n_agent
         self.possible_agents = [r for r in range(n_agent)]
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
 
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
-        self.action_spaces = {agent: {GameState.Reinforce: Discrete(n_nodes),
-                                      GameState.Attack: MultiDiscrete([2, n_edges]),  # +1 for Skip
-                                      GameState.Fortify: MultiDiscrete([2, n_nodes, n_nodes, 100]),  # Last dim for Skip
-                                      GameState.StartTurn: Discrete(1),
-                                      GameState.EndTurn: Discrete(1),
-                                      GameState.Card: Discrete(2),
-                                      GameState.Move: Discrete(100)
-                                      } for agent in self.possible_agents}
-        self.observation_spaces = {agent: Discrete(MAX_UNIT) for agent in self.possible_agents}  # placement
-        self.observation_spaces['board'] = Dict({})
-        self.observation_spaces['cards'] = MultiDiscrete([MAX_CARD for _ in range(n_agent)])
-        self.observation_spaces['my_cards'] = Discrete(2)
+        self.action_spaces = {GameState.Reinforce: Discrete(self.n_nodes),
+                              GameState.Attack: MultiDiscrete([2, self.n_edges]),  # +1 for Skip
+                              GameState.Fortify: MultiDiscrete([2, self.n_nodes, self.n_nodes, 100]),
+                              # Last dim for Skip
+                              # GameState.StartTurn: Discrete(1),
+                              # GameState.EndTurn: Discrete(1),
+                              GameState.Card: Discrete(2),
+                              GameState.Move: Discrete(100)
+                              }
+        # self.action_spaces = Box(0, 1000, shape=[self.n_nodes + self.n_edges + self.n_nodes+self.n_nodes + 100 + 1+1+1])
+        self.observation_spaces = None  # Core.Board()
 
         self.agents = []
         self.rewards = {}
@@ -136,10 +139,10 @@ class RiskEnv(AECEnv):
         plt.pause(0.001)
 
     def render(self, mode="human"):
-        '''
+        """
         Renders the environment. In human mode, it can print to terminal, open
         up a graphical window, or open up some other display that a human can see and understand.
-        '''
+        """
         plt.figure(0)
         plt.clf()
 
@@ -169,18 +172,13 @@ class RiskEnv(AECEnv):
             print('Wait for it')
 
     def observe(self, agent):
-        '''
+        """
         Observe should return the observation of the specified agent. This function
         should return a sane observation (though not necessarily the most up to date possible)
         at any time after reset() is called.
-        '''
-        # observation of one agent is the previous state of the other
+        """
 
-        return {'board': self.board,
-                'my_card': self.board.players[agent].cards,
-                'placement': self.board.players[agent].placement,
-                'game_state': self.board.state,
-                'cards': [len(p.cards) for p in self.board.players]}
+        return self.board
 
     def close(self):
         """
@@ -208,8 +206,8 @@ class RiskEnv(AECEnv):
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
         self.dones = {agent: False for agent in self.agents}
-        self.infos = {agent: {} for agent in self.agents}
-        self.board.reset(len(self.agents), 20, 7)
+        self.infos = {agent: {'nodes': self.n_nodes, 'agents': self.n_agents} for agent in self.agents}
+        self.board.reset(len(self.agents))
         self.num_turns = 0
         self.num_moves = 1
         '''
@@ -218,12 +216,20 @@ class RiskEnv(AECEnv):
         self._agent_selector = agent_selector(self.agents)
         self.agent_selection = self._agent_selector.next()
 
+        self.land_hist = {a: [] for a in self.possible_agents}
+        self.unit_hist = {a: [] for a in self.possible_agents}
+        self.place_hist = {a: [] for a in self.possible_agents}
+
     def reward(self, agent):
         return 0.0
 
     def done(self, agent):
-        return False
+        return len(self.board.player_nodes(agent)) == 0
 
+    # def get_action(self, action):
+    #     # [self.n_nodes + self.n_edges + self.n_nodes + self.n_nodes + 100 + 1 + 1 + 1]
+    #     if self.board.state == GameState.Reinforce:
+    #         action
     def step(self, action):
         """
         step(action) takes in an action for the current agent (specified by
@@ -243,9 +249,11 @@ class RiskEnv(AECEnv):
 
         agent = self.agent_selection
         state = self.board.state
-        logger.info('Player: {}, State: {}, Actions: {}'.format(agent, state, action))
+        # logger.info('Player: {}, State: {}, Actions: {}'.format(agent, state, action))
 
         self._cumulative_rewards[agent] = 0
+        # if len(action) == self.action_spaces.shape[0]:
+        #     action = self.get_action(action)
 
         self.board.step(agent, action)
 
@@ -274,15 +282,16 @@ class RiskEnv(AECEnv):
         if self.board.state == GameState.EndTurn:
             self.dones = {agent: True for agent in self.agents}
         # Adds .rewards to ._cumulative_rewards
-        self._accumulate_rewards()
+        # self._accumulate_rewards()
 
 
 if __name__ == '__main__':
-    e = env()
+    e = env(2, 'world')
     e.reset()
     # e.render()
     winner = -1
-    for agent in e.agent_iter():
+    for i, agent in enumerate(e.agent_iter()):
+        print(i)
         obs, rew, done, info = e.last()
         if done:
             continue
@@ -294,8 +303,8 @@ if __name__ == '__main__':
         if all(e.dones.values()):
             winner = agent
             break
-        # e.render()
-    # e.render()
-    # plt.show()
+        e.render()
+    e.render()
+    plt.show()
     logger.info('Done in {} Turns and {} Moves. Winner is Player {}'
                 .format(e.unwrapped.num_turns, e.unwrapped.num_moves, winner))

@@ -22,6 +22,39 @@ class Board:
         self.last_attack = (None, None)
         self.state = GameState.StartTurn
         self.info = info
+        self.n_grps = info['num_of_groups']
+        self.n_cards = self.g.number_of_nodes() + self.info['num_of_wild']
+
+    def valid_actions(self, player):
+        """
+            :player
+            return:
+                bool: isDeterministic?
+                list: action list
+        """
+        acts = []
+        if self.state == GameState.Reinforce:
+            acts = self.player_nodes(player)
+        elif self.state == GameState.Card:
+            acts = [0, 1] if len(self.players[player].cards) < 5 else [1]
+        elif self.state == GameState.Attack:
+            edges = self.player_attack_edges(player)
+            acts = [(1, (None, None))]
+            # assert action[0] <= 1, 'Attack Finished should be 0 or 1: {}'.format(action[0])
+            acts += [(0, e) for e in edges]
+        elif self.state == GameState.Move:
+            u = max(0, self.g.nodes[self.last_attack[1]]['units'] - 3)
+            acts = [i for i in range(u+1)]
+        elif self.state == GameState.Fortify:
+            cc = self.player_connected_components(player)
+            acts = [(1, None, None, None)]
+            for c in cc:
+                for a in c:
+                    for b in c:
+                        if a != b and self.g.nodes[a]['units'] > 1:
+                            acts.append((0, a, b, self.g.nodes[a]['units'] - 1))
+
+        return self.state != GameState.Attack, acts
 
     def can_fortify(self, player):
         cc = self.player_connected_components(player)
@@ -94,7 +127,7 @@ class Board:
         return sum([n[1]['units'] for n in self.g.nodes(data=True) if n[1]['player'] == player])
 
     def player_group_reward(self, player):
-        group = {gid + 1: True for gid in range(self.info['num_of_group'])}
+        group = {gid + 1: True for gid in range(self.n_grps)}
         for n in self.g.nodes(data=True):
             if n[1]['player'] != player:
                 group[n[1]['gid']] = False
@@ -128,8 +161,10 @@ class Board:
                 ee.append((e[1], e[0]))
         return ee
 
-    def reset(self, n_agent, n_unit_per_agent, n_cell_per_agent):
+    def reset(self, n_agent):
         n_cells = self.g.number_of_nodes()
+        n_cell_per_agent = n_cells // n_agent
+        n_unit_per_agent = self.info['num_of_unit']
         assert n_cell_per_agent * n_agent == n_cells
 
         remaining_cells = [i for i in self.g.nodes()]
@@ -178,10 +213,11 @@ class Board:
                 if cnt == 3:
                     break
         else:
-            match_type = CardType.Artillery if ct[CardType.Artillery] >= 3 - cnt\
-                else CardType.Cavalry if ct[CardType.Cavalry] >= 3 - cnt\
+            match_type = CardType.Artillery if ct[CardType.Artillery] >= 3 - cnt \
+                else CardType.Cavalry if ct[CardType.Cavalry] >= 3 - cnt \
                 else CardType.Infantry
-            used += [self.players[player].cards[match_type].pop(-1) for _ in range(3 - cnt) if len(self.players[player].cards[match_type])]
+            used += [self.players[player].cards[match_type].pop(-1) for _ in range(3 - cnt) if
+                     len(self.players[player].cards[match_type])]
         self.players[player].placement += CARD_FIX_SCORE[match_type]
         for c in used:
             c.owner = -1
@@ -245,7 +281,8 @@ class Board:
                 self.g.nodes[actions[1]]['units'] -= int(actions[3])
                 self.g.nodes[actions[2]]['units'] += int(actions[3])
 
-        self.next_state(agent, self.state, attack_succeed, attack_finished, len(self.player_nodes(agent)) == len(self.g.nodes()))
+        self.next_state(agent, self.state, attack_succeed, attack_finished,
+                        len(self.player_nodes(agent)) == len(self.g.nodes()))
         if self.state == GameState.StartTurn and self.players[agent].deserve_card:
             self.give_card(agent)
 
@@ -261,5 +298,9 @@ def register_map(name, filepath):
 
     BOARDS[name] = Board(g, m['info'])
 
+
 print(os.getcwd())
 register_map('world', './maps/world.json')
+register_map('4node', './maps/4node.json')
+register_map('6node', './maps/6node.json')
+register_map('8node', './maps/8node.json')
