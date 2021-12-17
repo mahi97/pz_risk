@@ -13,18 +13,21 @@ class DenseRewardWrapper(BaseWrapper):
         super().__init__(env)
         self.board = env.unwrapped.board
         self.n_agents = env.unwrapped.n_agents
+        self.n_nodes = env.unwrapped.n_nodes
         # self.cum_rew = 0
 
     def reset(self):
         super(DenseRewardWrapper, self).reset()
         # self.cum_rew = 0
 
-    def reward(self, agent):
-        return manual_value(self.board, agent)
+    def reward(self, agent, last=False):
+        if last:
+            return -1
+        return 2*len(self.board.player_nodes(agent))/self.n_nodes - 1 #manual_value(self.board, agent)
         # return self.cum_rew
 
     def done(self, agent):
-        return len(self.board.player_nodes(agent)) == 0
+        return len(self.board.player_nodes(agent)) == 0 or len(self.board.player_nodes(agent)) == self.n_nodes
 
     def observe(self, agent):
         obs = super().observe(agent)

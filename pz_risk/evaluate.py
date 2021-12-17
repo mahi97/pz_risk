@@ -43,7 +43,7 @@ def main():
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
-    e = env(n_agent=6, board_name='world')
+    e = env(n_agent=6, board_name='d_4node')
     e = GraphObservationWrapper(e)
     e.reset()
     _, _, _, info = e.last()

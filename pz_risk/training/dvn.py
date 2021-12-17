@@ -56,16 +56,20 @@ class DVN(nn.Module):
     def __init__(self, feat_space, hidden_size):
         super(DVN, self).__init__()
 
-        self.h1 = GNN(init_(nn.Linear(feat_space, hidden_size)), nn.Tanh())
-        self.h2 = GNN(init_(nn.Linear(hidden_size, hidden_size)), nn.Tanh())
+        self.h1 = GNN(init_(nn.Linear(feat_space, hidden_size)), nn.ReLU())
+        self.h2 = GNN(init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
+        self.h3 = GNN(init_(nn.Linear(hidden_size, hidden_size)), nn.ReLU())
 
-        self.critic_linear = init_(nn.Linear(hidden_size, 1))
+        self.critic_linear = init_(nn.Linear(hidden_size, hidden_size))
+        self.critic_linear2 = init_(nn.Linear(hidden_size, 1))
         self.train()
 
     def forward(self, feat, adj):
         hidden = self.h1(feat, adj)
         hidden = self.h2(hidden, adj)
-        return self.critic_linear(hidden)
+        hidden = self.h3(hidden, adj)
+        hidden = self.critic_linear(hidden)
+        return torch.tanh(self.critic_linear2(hidden))
 
 
 class DVNAgent(nn.Module):
@@ -82,8 +86,8 @@ class DVNAgent(nn.Module):
         self.optimizer = optim.RMSprop(self.policy_network.parameters())
 
         self.batch_size = 100
-        self.gamma = 0.9999
-        self.target_update = 2000
+        self.gamma = 0.999
+        self.target_update = 20
         self.num_train = 0
         self.n_nodes = num_nodes
         self.n_agents = num_agents
@@ -112,7 +116,7 @@ class DVNAgent(nn.Module):
         y = torch.zeros([self.batch_size, self.n_agents], device=self.device)
         y[non_final_mask_feat] = self.target_network(non_final_next_feat, non_final_next_adj)[:, self.n_nodes:].squeeze().detach() * self.gamma
         y += reward_batch
-
+        # print(y, reward_batch)
         # Compute Huber loss
         loss = F.smooth_l1_loss(y, q)
 

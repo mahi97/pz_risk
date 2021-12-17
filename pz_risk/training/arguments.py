@@ -23,16 +23,6 @@ def get_args():
         default=0.99,
         help='discount factor for rewards (default: 0.99)')
     parser.add_argument(
-        '--use-gae',
-        action='store_true',
-        default=False,
-        help='use generalized advantage estimation')
-    parser.add_argument(
-        '--gae-lambda',
-        type=float,
-        default=0.95,
-        help='gae lambda parameter (default: 0.95)')
-    parser.add_argument(
         '--entropy-coef',
         type=float,
         default=0.01,
@@ -114,7 +104,7 @@ def get_args():
     parser.add_argument(
         '--no-cuda',
         action='store_true',
-        default=False,
+        default=True,
         help='disables CUDA training')
     parser.add_argument(
         '--use-proper-time-limits',
@@ -140,6 +130,6 @@ def get_args():
 
     args = parser.parse_args()
 
-    args.cuda = not args.no_cuda and torch.cuda.is_available()
+    args.cuda = False #not args.no_cuda and torch.cuda.is_available()
 
     return args

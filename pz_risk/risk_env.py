@@ -12,7 +12,7 @@ import numpy as np
 import networkx as nx
 from matplotlib import pyplot as plt
 
-from core.board import Board, BOARDS
+from core.board import Board, BOARDS, get_random_board
 from core.gamestate import GameState
 
 from loguru import logger
@@ -71,7 +71,14 @@ class RiskEnv(AECEnv):
         These attributes should not be changed after initialization.
         """
         super().__init__()
-        self.board = BOARDS[board_name]
+        if board_name.endswith('random'):
+            info = board_name.split('_')
+            n_node = int(info[1])
+            n_unit = int(info[2])
+            self.board = get_random_board(n_node, n_agent, n_unit, board_name[0] == 'd')
+        else:
+            self.board = BOARDS[board_name]
+
         self.n_nodes = self.board.g.number_of_nodes()
         self.n_edges = self.board.g.number_of_edges()
         self.n_grps = self.board.n_grps
@@ -148,8 +155,10 @@ class RiskEnv(AECEnv):
 
         G = self.board.g
         # pos = nx.spring_layout(G, seed=3113794652)  # positions for all nodes
-        # pos = nx.kamada_kawai_layout(G)  # positions for all nodes
-        pos = {i: n['pos'] for i, n in self.board.g.nodes(data=True)}
+        if 'pos' not in self.board.g.nodes[0]:
+            pos = nx.kamada_kawai_layout(G)  # positions for all nodes
+        else:
+            pos = {i: n['pos'] for i, n in self.board.g.nodes(data=True)}
         if mode == 'human':
             options = {"edgecolors": "tab:gray", "node_size": 800, "alpha": 0.9}
             for agent in self.agents:
@@ -224,7 +233,7 @@ class RiskEnv(AECEnv):
         return 0.0
 
     def done(self, agent):
-        return len(self.board.player_nodes(agent)) == 0
+        return len(self.board.player_nodes(agent)) == 0 or len(self.board.player_nodes(agent)) == self.n_nodes
 
     # def get_action(self, action):
     #     # [self.n_nodes + self.n_edges + self.n_nodes + self.n_nodes + 100 + 1 + 1 + 1]
@@ -286,7 +295,7 @@ class RiskEnv(AECEnv):
 
 
 if __name__ == '__main__':
-    e = env(2, 'world')
+    e = env(2, 'd_4node')
     e.reset()
     # e.render()
     winner = -1
@@ -303,8 +312,8 @@ if __name__ == '__main__':
         if all(e.dones.values()):
             winner = agent
             break
-        e.render()
-    e.render()
-    plt.show()
+        # e.render()
+    # e.render()
+    # plt.show()
     logger.info('Done in {} Turns and {} Moves. Winner is Player {}'
                 .format(e.unwrapped.num_turns, e.unwrapped.num_moves, winner))

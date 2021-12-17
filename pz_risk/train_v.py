@@ -36,26 +36,27 @@ def main():
 
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
-
-    e = env(n_agent=2, board_name='4node')
+    n_agents = 2
+    e = env(n_agent=n_agents, board_name='d_6node')
     e = GraphObservationWrapper(e)
-    e = SparseRewardWrapper(e)
+    e = DenseRewardWrapper(e)
+    # e = SparseRewardWrapper(e)
     e.reset()
     _, _, _, info = e.last()
     n_nodes = info['nodes']
     n_agents = info['agents']
     max_episode = 3000
-    max_epi_step = 200
+    max_epi_step = 20
 
-    epsilon = 0.9
-    epsilon_min = 0.005
-    decay_rate = 0.005
+    epsilon = 1.0
+    epsilon_min = 0.0005
+    decay_rate = 0.0005
 
     feat_size = e.observation_spaces['feat'].shape[0]
     hidden_size = 20
 
     critic = DVNAgent(n_nodes, n_agents, feat_size, hidden_size)
-    save_path = './mini_7/'
+    save_path = './mini_2/'
     load = 0
     # critic.load_state_dict(torch.load(os.path.join(save_path, str(load) + ".pt")))
     loss_list = []
@@ -64,21 +65,23 @@ def main():
     # players = [None]
     # players = [RandomAgent(i) for i in range(1, 6)]
 
-    for episode in tqdm(range(load, max_episode)):
+    for episode in tqdm(range(load, max_episode+1)):
 
         e.reset()
         state, _, _, _ = e.last()
         loss_epi = []
         reward_epi = []
-        for agent_id in e.agent_iter(max_iter=max_epi_step):
+        id = np.random.randint(n_agents)
+        for i, agent_id in enumerate(e.agent_iter(max_iter=max_epi_step)):
             # for a in e.possible_agents:
             #     e.unwrapped.land_hist[a].append(len(e.unwrapped.board.player_nodes(a)))
             #     e.unwrapped.unit_hist[a].append(e.unwrapped.board.player_units(a))
             #     e.unwrapped.place_hist[a].append(e.unwrapped.board.calc_units(a))
             # make an action based on epsilon greedy action
             state, _, _, info = e.last()
+
             critic.eval()
-            if agent_id != 0:
+            if agent_id != id or np.random.rand() < epsilon:
                 task_id = state['task_id']
                 action = SAMPLING[task_id](e.unwrapped.board, agent_id)
             else:
@@ -102,7 +105,10 @@ def main():
                                                                                                   feat_size)
                     sim_adj = torch.tensor(sim_adj, dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents,
                                                                                                 n_nodes + n_agents)
-                    action_scores.append(critic(sim_feat, sim_adj).detach().cpu().numpy()[:, n_nodes + agent_id])
+                    if len(sim.player_nodes(agent_id)) == n_nodes:
+                        action_scores.append(10000)
+                    else:
+                        action_scores.append(critic(sim_feat, sim_adj).detach().cpu().numpy()[:, n_nodes + agent_id])
                 action = valid_actions[np.argmax(action_scores)]
             before_feat = torch.tensor(state['feat'], dtype=torch.float32, device=device).reshape(-1,
                                                                                                   n_nodes + n_agents,
@@ -120,8 +126,16 @@ def main():
             done = torch.tensor(state['dones'], dtype=torch.bool, device=device).reshape(-1, n_agents)
             reward_epi.append(reward.cpu().numpy()[0])
             # e.render()
+            if all(state['dones']):
+                break
 
+            if i == max_epi_step - 1:
+                rew = [e.reward(i, True) for i in range(n_agents)]
+                # rew2 = [0 for i in range(n_agents)]
+                reward = torch.tensor([rew], dtype=torch.float32, device=device)
+                # print('wtf')
             # make a transition and save to replay memory
+            # print(reward)
             transition = [before_feat, before_adj, reward, feat, adj, done]
             critic.save_memory(transition)
             critic.train()
@@ -129,9 +143,10 @@ def main():
                 loss = critic.train_()
                 loss_epi.append(loss)
                 # print('Loss: {}, Reward: {}'.format(loss, reward))
-            if all(done[0].cpu().numpy()):
-                break
 
+        if i < max_epi_step - 1:
+            print('hey')
+        # print(epsilon)
         if epsilon > epsilon_min:
             epsilon -= decay_rate
         else:
@@ -143,11 +158,9 @@ def main():
         e.close()
         reward_list.append(sum(reward_epi))
 
-        if critic.train_start():
+        if episode % 100 == 0 and episode // 100 > 0:
             print(episode + 1, reward_list[-1], loss_list[-1])
-
-        if episode % 10 == 0:
-            torch.save(critic.state_dict(), os.path.join(save_path, str(episode // 10) + ".pt"))
+            torch.save(critic.state_dict(), os.path.join(save_path, str(episode // 100) + ".pt"))
 
     return loss_list, reward_list
 

@@ -42,12 +42,12 @@ def get_chance(attack_unit, defense_unit, left):
     d3[(attack_unit, defense_unit, left)] = c
     return c
 
-k, j = 8, 8
+k, j = 3, 1
 
-
-b = range(-j, k)
+b = range(-j, k+1)
 a = [get_chance(k, j, i) for i in b]
 
+print(np.argmax(a), range(-j, k+1)[np.argmax(a)])
 
 plt.plot(b, a)
 plt.show()

@@ -60,7 +60,7 @@ def main():
     torch.set_num_threads(1)
     device = torch.device("cuda:0" if args.cuda else "cpu")
 
-    e = env(n_agent=4, board_name='8node')
+    e = env(n_agent=2, board_name='d_6node')
     e = GraphObservationWrapper(e)
     e = SparseRewardWrapper(e)
     e.reset()
@@ -112,9 +112,11 @@ def main():
                 sim_feat, sim_adj = get_feat_adj_from_board(sim, agent_id, e.unwrapped.n_agents, e.unwrapped.n_grps)
                 sim_feat = torch.tensor(sim_feat, dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents, feat_size)
                 sim_adj = torch.tensor(sim_adj, dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents, n_nodes + n_agents)
-                action_scores.append(critic(sim_feat, sim_adj).detach().cpu().numpy()[:, n_nodes + agent_id])
+                if len(sim.player_nodes(agent_id)) == n_nodes:
+                    action_scores.append(10000)
+                else:
+                    action_scores.append(critic(sim_feat, sim_adj).detach().cpu().numpy()[:, n_nodes + agent_id])
             action = valid_actions[np.argmax(action_scores)]
-
         e.step(action)
         e.render()
         render_info()

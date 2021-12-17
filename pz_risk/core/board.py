@@ -10,11 +10,13 @@ from core.player import Player
 from utils import *
 from core.gamestate import GameState
 
+from agents.value import get_chance
+
 BOARDS = {}
 
 
 class Board:
-    def __init__(self, graph: nx.Graph, info, pos=None):
+    def __init__(self, graph: nx.Graph, info, pos=None, deterministic=False):
         self.g = graph
         self.pos = pos
         self.players = []
@@ -24,6 +26,28 @@ class Board:
         self.info = info
         self.n_grps = info['num_of_groups']
         self.n_cards = self.g.number_of_nodes() + self.info['num_of_wild']
+        self.deterministic = deterministic
+        self.iter = 0
+
+    def game_ended(self, player, max_iter=None):
+        nodes = len(self.g.nodes())
+        player_nodes = len(self.player_nodes(player))
+        max_iter = max_iter if max_iter else 100
+        if player_nodes == nodes:
+            return 1
+        elif player_nodes == 0:
+            return -1
+        elif self.iter > max_iter:
+            return (2*player_nodes - nodes) / nodes
+        else:
+            return None
+
+    def to_numpy(self, player):
+        b = np.array([[n[1]['player'], n[1]['units'], player, self.state.value] for n in self.g.nodes(data=True)])
+        return b
+
+    def to_string(self, player):
+        return self.to_numpy(player).tostring()
 
     def valid_actions(self, player):
         """
@@ -44,7 +68,7 @@ class Board:
             acts += [(0, e) for e in edges]
         elif self.state == GameState.Move:
             u = max(0, self.g.nodes[self.last_attack[1]]['units'] - 3)
-            acts = [i for i in range(u+1)]
+            acts = [i for i in range(u + 1)]
         elif self.state == GameState.Fortify:
             cc = self.player_connected_components(player)
             acts = [(1, None, None, None)]
@@ -54,7 +78,19 @@ class Board:
                         if a != b and self.g.nodes[a]['units'] > 1:
                             acts.append((0, a, b, self.g.nodes[a]['units'] - 1))
 
-        return self.state != GameState.Attack, acts
+        return self.deterministic or self.state != GameState.Attack, acts
+
+    def player_fortify_edges(self, player):
+        cc = self.player_connected_components(player)
+        edges = []
+        weights = []
+        for c in cc:
+            for a in c:
+                for b in c:
+                    if a != b and self.g.nodes[a]['units'] > 1:
+                        edges.append((a, b))
+                        weights.append(self.g.nodes[a]['units'] - 1)
+        return edges, weights
 
     def can_fortify(self, player):
         cc = self.player_connected_components(player)
@@ -165,12 +201,16 @@ class Board:
         n_cells = self.g.number_of_nodes()
         n_cell_per_agent = n_cells // n_agent
         n_unit_per_agent = self.info['num_of_unit']
-        assert n_cell_per_agent * n_agent == n_cells
-
+        # assert n_cell_per_agent * n_agent == n_cells
+        self.iter = 0
         remaining_cells = [i for i in self.g.nodes()]
         for i in range(n_agent):
-            cells = random.sample(remaining_cells, n_cell_per_agent)
-            remaining_cells = [c for c in remaining_cells if c not in cells]
+            if i == n_agent - 1:
+                cells = remaining_cells
+                remaining_cells = []
+            else:
+                cells = random.sample(remaining_cells, n_cell_per_agent)
+                remaining_cells = [c for c in remaining_cells if c not in cells]
             nx.set_node_attributes(self.g, {c: int(1) for c in cells}, 'units')
             nx.set_node_attributes(self.g, {c: i for c in cells}, 'player')
             t = n_unit_per_agent - n_cell_per_agent
@@ -230,6 +270,7 @@ class Board:
         card.owner = player
 
     def step(self, agent, actions, left=None):
+        self.iter += 1
         attack_succeed = False
         attack_finished = False
         if self.state == GameState.StartTurn:
@@ -251,6 +292,13 @@ class Board:
                 trg_unit = self.g.nodes[trg]['units']
                 if left:
                     src_loss = min(src_unit, src_unit - left)
+                    trg_loss = min(trg_unit, trg_unit + left)
+                elif self.deterministic:
+                    su = src_unit - 1
+                    c = [get_chance(su, trg_unit, i) for i in range(-trg_unit, src_unit)]
+                    i = np.argmax(c)
+                    left = range(-trg_unit, src_unit)[i]
+                    src_loss = min(su, su - left)
                     trg_loss = min(trg_unit, trg_unit + left)
                 else:
                     src_loss, trg_loss = single_roll(src_unit - 1, trg_unit)
@@ -283,12 +331,29 @@ class Board:
 
         self.next_state(agent, self.state, attack_succeed, attack_finished,
                         len(self.player_nodes(agent)) == len(self.g.nodes()))
-        if self.state == GameState.StartTurn and self.players[agent].deserve_card:
-            self.give_card(agent)
+        # if self.state == GameState.StartTurn and self.players[agent].deserve_card and not self.deterministic:
+        #     self.give_card(agent)
 
 
-def register_map(name, filepath):
-    global BOARDS
+def get_random_board(n_nodes, n_agents, n_units, deterministic):
+    g = nx.gnp_random_graph(n_nodes, 0.5)
+    while min([d[1] for d in g.degree()]) < 1:
+        g = nx.gnp_random_graph(n_nodes, 0.5)
+
+    for i in range(len(g.nodes)):
+        g.nodes[i]['gid'] = 1
+    info = {
+        "name": "world",
+        "num_of_groups": 1,
+        "num_of_cell": n_nodes,
+        "num_of_unit": n_units,
+        "num_of_wild": 2,
+        "group_reward": {"1": 7}
+    }
+    return Board(g, info, None, deterministic)
+
+
+def get_board_game(filepath, deterministic=False):
     f = open(filepath)
     m = json.load(f)
     g = nx.Graph()
@@ -296,11 +361,15 @@ def register_map(name, filepath):
     g.add_edges_from([e for e in m['edges']])
     assert min([d[1] for d in g.degree()]) > 0
 
-    BOARDS[name] = Board(g, m['info'])
+    return Board(g, m['info'], None, deterministic)
 
 
-print(os.getcwd())
-register_map('world', './maps/world.json')
-register_map('4node', './maps/4node.json')
-register_map('6node', './maps/6node.json')
-register_map('8node', './maps/8node.json')
+def register_map(name, filepath, deterministic=False):
+    global BOARDS
+    BOARDS[name] = get_board_game(filepath, deterministic)
+
+
+# print(os.getcwd())
+for map in ['world', '4node', '6node', '8node']:
+    register_map(map, './maps/' + map + '.json')
+    register_map('d_' + map, './maps/' + map + '.json', True)

@@ -57,3 +57,4 @@ SAMPLING = {
     GameState.Move: sample_move,
     GameState.EndTurn: lambda b, p: None
 }
+
