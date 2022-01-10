@@ -21,9 +21,7 @@ class DenseRewardWrapper(BaseWrapper):
         # self.cum_rew = 0
 
     def reward(self, agent, last=False):
-        if last:
-            return -1
-        return 2*len(self.board.player_nodes(agent))/self.n_nodes - 1 #manual_value(self.board, agent)
+        return len(self.board.player_nodes(agent))/self.n_nodes
         # return self.cum_rew
 
     def done(self, agent):

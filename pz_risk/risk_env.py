@@ -34,7 +34,7 @@ COLORS = [
 ]
 
 
-def env(n_agent=6, board_name='world'):
+def env(n_agent=6, board_name='world', edge_p=0.5, id=0):
     """
     The env function wraps the environment in 3 wrappers by default. These
     wrappers contain logic that is common to many pettingzoo environments.
@@ -42,7 +42,7 @@ def env(n_agent=6, board_name='world'):
     to provide sane error messages. You can find full documentation for these methods
     elsewhere in the developer documentation.
     """
-    env = RiskEnv(n_agent, board_name)
+    env = RiskEnv(n_agent, board_name, edge_p, id)
     env = wrappers.CaptureStdoutWrapper(env)
     env = risk_wrappers.AssertInvalidActionsWrapper(env)
     env = wrappers.OrderEnforcingWrapper(env)
@@ -58,7 +58,7 @@ class RiskEnv(AECEnv):
     """
     metadata = {'render.modes': ['human'], "name": "rps_v2"}
 
-    def __init__(self, n_agent=6, board_name='world'):
+    def __init__(self, n_agent=6, board_name='world', edge_p=0.5, id=0):
         """
         - n_agent: Number of Agent
         - board: ['test', 'world', 'world2']
@@ -75,7 +75,7 @@ class RiskEnv(AECEnv):
             info = board_name.split('_')
             n_node = int(info[1])
             n_unit = int(info[2])
-            self.board = get_random_board(n_node, n_agent, n_unit, board_name[0] == 'd')
+            self.board = get_random_board(n_node, n_agent, n_unit, board_name[0] == 'd', edge_p)
         else:
             self.board = BOARDS[board_name]
 
@@ -86,7 +86,7 @@ class RiskEnv(AECEnv):
         self.n_agents = n_agent
         self.possible_agents = [r for r in range(n_agent)]
         self.agent_name_mapping = dict(zip(self.possible_agents, list(range(len(self.possible_agents)))))
-
+        self.id = id
         # Gym spaces are defined and documented here: https://gym.openai.com/docs/#spaces
         self.action_spaces = {GameState.Reinforce: Discrete(self.n_nodes),
                               GameState.Attack: MultiDiscrete([2, self.n_edges]),  # +1 for Skip
@@ -176,7 +176,7 @@ class RiskEnv(AECEnv):
             plt.tight_layout()
             plt.axis("off")
             plt.pause(0.001)
-            self.render_info()
+            # self.render_info()
         else:
             print('Wait for it')
 

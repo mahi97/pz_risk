@@ -335,12 +335,16 @@ class Board:
         #     self.give_card(agent)
 
 
-def get_random_board(n_nodes, n_agents, n_units, deterministic):
-    g = nx.gnp_random_graph(n_nodes, 0.5)
-    while min([d[1] for d in g.degree()]) < 1:
-        g = nx.gnp_random_graph(n_nodes, 0.5)
+def get_random_board(n_nodes, n_agents, n_units, deterministic, edge_p=0.5):
+    g = nx.gnp_random_graph(n_nodes, edge_p)
+    es = []
+    for i in g.nodes():
+        es.append([i, (i+1) % len(g.nodes)])
+    g.add_edges_from(es)
+    # while min([d[1] for d in g.degree()]) < 1:
+    #     g = nx.gnp_random_graph(n_nodes, 0.3)
 
-    for i in range(len(g.nodes)):
+    for i in g.nodes:
         g.nodes[i]['gid'] = 1
     info = {
         "name": "world",
@@ -370,6 +374,6 @@ def register_map(name, filepath, deterministic=False):
 
 
 # print(os.getcwd())
-for map in ['world', '4node', '6node', '8node']:
-    register_map(map, './maps/' + map + '.json')
-    register_map('d_' + map, './maps/' + map + '.json', True)
+# for map in ['world', '4node', '6node', '8node']:
+#     register_map(map, './maps/' + map + '.json')
+#     register_map('d_' + map, './maps/' + map + '.json', True)

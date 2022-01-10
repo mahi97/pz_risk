@@ -29,11 +29,16 @@ class GeometricObservationWrapper(BaseWrapper):
 
     def observe(self, agent):
         board = self.env.observe(agent)
-        data = get_geom_from_board(board, self.n_agents, True)
+        data = get_geom_from_board(board, self.n_agents, agent, True)
         return {
             'data': data,
             'task_id': board.state
         }
+
+    def reset(self):
+        super(GeometricObservationWrapper, self).reset()
+        self.agents = self.env.agents
+
 
     def __str__(self):
         return str(self.env)

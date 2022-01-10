@@ -4,7 +4,7 @@ import numpy as np
 
 from risk_env import env
 import training.utils as utils
-from training.dvn4 import DVNAgent
+from training.dvn3 import DVNAgent
 from training.args import get_args
 import wrappers
 
@@ -21,8 +21,6 @@ from multiprocessing import Pool as CPool
 
 from torch.multiprocessing import Pool, Process, set_start_method
 from training.mcts import MCTS
-
-
 
 
 class Coach:
@@ -185,7 +183,6 @@ class Coach:
                 state, _, _, _ = self.env.last()
                 task_id = state['task_id']
                 action = SAMPLING[task_id](self.env.unwrapped.board, agent_id)
-
             else:
                 model = self.critic if agent_id == id else self.last_critic
                 # Use Model to Gather Future State per Valid Actions

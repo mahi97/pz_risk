@@ -5,3 +5,4 @@ from .puregraph_observation import PureGraphObservationWrapper
 from .sparse_reward import SparseRewardWrapper
 from .dense_reward import DenseRewardWrapper
 from .geometric_observation import GeometricObservationWrapper
+from .vectorize import VectorizeWrapper

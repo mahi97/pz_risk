@@ -43,8 +43,8 @@ class Coach:
         timestamp = datetime.datetime.now().strftime('%Y%m%d%H%M%S')
         self.save_path = self.args.save_path + '{}_{}_{}_{}_{}.pt'.format(timestamp, args.max_agents, args.max_nodes,
                                                                           args.seed, '{}')
-        self.agents = range(2, self.args.max_agents)
-        self.nodes = range(4, self.args.max_nodes)
+        self.agents = [self.args.max_agents] #range(2, self.args.max_agents)
+        self.nodes = [self.args.max_nodes] #range(20, self.args.max_nodes)
         self.exec_pool = Pool()
         self.eval_pool = Pool()
 
@@ -69,18 +69,16 @@ class Coach:
     def initialize(self):
         # self.n_agents = range(2, self.args.max_agents)
         # self.n_nodes = range(self.args.max_agents + 1, self.args.max_nodes)
-        self.env = env(n_agent=self.n_agents, board_name='_{}_{}_random'.format(self.n_nodes, self.n_nodes * 2))
-        print('Agents: {} Node: {}'.format(self.n_agents, self.n_nodes))
+        self.env = env(n_agent=self.n_agents, board_name='d_{}_{}_random'.format(self.n_nodes, self.n_nodes * 2))
+        # print('Agents: {} Node: {}'.format(self.n_agents, self.n_nodes))
         self.env = wrappers.PureGraphObservationWrapper(self.env)
-        self.env = wrappers.SparseRewardWrapper(self.env)
+        self.env = wrappers.DenseRewardWrapper(self.env)
         self.env.reset()
 
         self.feat_size = self.env.observation_spaces['feat'].shape[0]
         self.type_size = self.n_nodes
         hidden_size = self.args.hidden_size
-        self.critic = DVNAgent(self.n_nodes, self.n_agents, self.type_size, self.feat_size, hidden_size, self.device)
 
-        self.critic.load_state_dict(torch.load(self.args.dir))
 
     def eval(self, ids):
         self.env.reset()
@@ -92,7 +90,7 @@ class Coach:
             # p2 = mcts.getActionProb(e.unwrapped.board, agent_id, critic, False)
             # make an action based on epsilon greedy action
             if agent_id == id:
-                p1 = mcts.getActionProb(self.env.unwrapped.board, agent_id, self.critic, i, True)
+                p1 = mcts.getActionProb(self.env.unwrapped.board, agent_id, None, i, True)
                 deterministic, valid_actions = self.env.unwrapped.board.valid_actions(agent_id)
                 # task_id = state['task_id']
                 # action = SAMPLING[task_id](e.unwrapped.board, agent_id)
@@ -107,20 +105,23 @@ class Coach:
             state, _, _, _ = self.env.last()
             if all(state['dones']):
                 return state['rewards'][id]
-        return 0
+        return state['rewards'][id]
 
     def evaluate(self):
-        self.critic.eval()
         ids = [i for i in range(self.n_agents)] * self.args.eval_iter
         t = self.eval_pool.map(self.eval, enumerate(ids))
-        w = len([tt for tt in t if tt > 0])
-        l = len([tt for tt in t if tt < 0])
-        print(w, l, len(t) - w - l, (w - l) / len(t))
+        for tt in t:
+            model_data.append(['MCTS', self.n_agents, self.n_nodes, tt])
+        w = len([tt for tt in t if tt >= 0.5])
+        l = len([tt for tt in t if tt < 0.5])
+        # print(w, l, len(t) - w - l, (w - l) / len(t))
+        print(self.args.mcts, w)
 
     def finalize(self):
+        # print(model_data)
         self.env.close()
 
-
+model_data = []
 def main():
     args = get_args()
 

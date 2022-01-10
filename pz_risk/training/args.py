@@ -53,6 +53,17 @@ def get_args():
         default=0.5,
         help='max norm of gradients (default: 0.5)')
     parser.add_argument(
+        '--edge-p',
+        type=float,
+        default=0.5,
+        help='Edge existence probability in random graph generation (default: 0.5)')
+    parser.add_argument(
+        '--unit-coef',
+        type=float,
+        default=2.0,
+        help='Unit Coefficient (default: 2.0)')
+
+    parser.add_argument(
         '--mcts', type=int, default=100, help='MCTS Rollouts (default: 100)')
     parser.add_argument(
         '--seed', type=int, default=1, help='random seed (default: 1)')
@@ -84,7 +95,7 @@ def get_args():
     parser.add_argument(
         '--train-epoch',
         type=int,
-        default=100,
+        default=10,
         help='number of critic train epochs (default: 100)')
     parser.add_argument(
         '--log-interval',

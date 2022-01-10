@@ -1,30 +1,22 @@
-### DVN ###
-### Deep Value Network ###
-import torch
-import torch.nn as nn
+import numpy as np
 import torch.optim as optim
 import torch.nn.functional as F
-import torchvision.transforms as T
 
-import math
-import random
-import numpy as np
-
-from itertools import count
 from collections import namedtuple
 
 from training.utils import *
 
-from copy import deepcopy
 from utils import *
 
-from training.gnn import GNN
-from torch_geometric.nn import to_hetero
+from training.gnn import GNN, HetroGNN
+from torch_geometric.loader import DataLoader
+
+from core.gamestate import GameState
 
 Transition = namedtuple('Transition', ('board', 'reward', 'done'))
 
 
-class ReplayMemory(object):
+class GraphReplayMemory(object):
 
     def __init__(self, capacity, device, n_nodes, n_agents, feat_size):
         self.capacity = capacity
@@ -35,50 +27,32 @@ class ReplayMemory(object):
         self.n_agents = n_agents
         self.feat_size = feat_size
 
-    def push(self, *args):
+    def push(self, data):
         """Saves a transition."""
         if len(self.memory) < self.capacity:
             self.memory.append(None)
-        self.memory[self.position] = Transition(*args)
+        self.memory[self.position] = data
         self.position = (self.position + 1) % self.capacity
 
     def sample(self, batch_size):
-        samples = random.sample(self.memory, min(batch_size, len(self.memory)))
-        batch = Transition(*zip(*samples))
-        before_feat = torch.tensor(batch.before_feat, dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                       self.n_nodes + self.n_agents,
-                                                                                                       self.feat_size)
-        before_adj = torch.tensor(np.array(batch.before_adj), dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                               self.n_nodes + self.n_agents,
-                                                                                                               self.n_nodes + self.n_agents)
-        feat = torch.tensor(np.array(batch.feat), dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                   self.n_nodes + self.n_agents,
-                                                                                                   self.feat_size)
-        adj = torch.tensor(np.array(batch.adj), dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                 self.n_nodes + self.n_agents,
-                                                                                                 self.n_nodes + self.n_agents)
-        types = torch.tensor(np.array(batch.type), dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                    self.n_nodes + self.n_agents)
-        reward = torch.tensor(np.array(batch.reward), dtype=torch.float32, device=self.device).reshape(-1,
-                                                                                                       self.n_agents)
-        done = torch.tensor(np.array(batch.done), dtype=torch.bool, device=self.device).reshape(-1, self.n_agents)
-        return Transition(before_feat, before_adj, reward, feat, adj, types, done)
+        loader = DataLoader(self.memory[:-1], batch_size, shuffle=True)
+        return loader._get_iterator().__next__()
 
     def __len__(self):
         return len(self.memory)
 
 
 class DVNAgent(nn.Module):
-    def __init__(self, num_nodes, num_agents, node_feat_size, hidden_size, data, device='cuda:0'):
+    def __init__(self, num_nodes, num_agents, node_feat_size, hidden_size, device='cuda:0'):
         super(DVNAgent, self).__init__()
         self.device = device
-        self.policy_network = GNN(node_feat_size, node_feat_size, hidden_size).to(device)
-        self.target_network = GNN(node_feat_size, node_feat_size, hidden_size).to(device)
+        self.policy_network = HetroGNN(node_feat_size, 2 * node_feat_size, hidden_size).to(device)
+        self.target_network = HetroGNN(node_feat_size, 2 * node_feat_size, hidden_size).to(device)
 
-        self.policy_network = to_hetero(self.policy_network, data.metadata())
-        self.target_network = to_hetero(self.target_network, data.metadata())
-        self.policy_network(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
-        self.memory = ReplayMemory(2 ** 14, device, num_nodes, num_agents, node_feat_size)
+        # self.policy_network = to_hetero(self.policy_network, data.metadata())
+        # self.target_network = to_hetero(self.target_network, data.metadata())
+        # self.policy_network(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
+        self.memory = GraphReplayMemory(2 ** 14, device, num_nodes, num_agents, node_feat_size)
         self.target_network.load_state_dict(self.policy_network.state_dict())
         self.target_network.eval()
 
@@ -92,12 +66,29 @@ class DVNAgent(nn.Module):
         self.n_agents = num_agents
         self.feat_size = node_feat_size
 
+    def get_value_and_probs(self, board, agent_id):
+        data = get_geom_from_board(board, self.n_agents, agent_id)
+        x, e = self.forward(data)  # .detach().cpu().numpy()[:, self.n_nodes + agent_id]
+        # print(x.shape, e.shape)
+        p = None
+        if self.state == GameState.Reinforce:
+            p = x[data.reinforce_index].squeeze().detach().cpu().numpy()
+        elif self.state == GameState.Card:
+            p = [0, 1]
+        elif self.state == GameState.Attack:
+            p = np.insert(e[data.attack_index].squeeze().detach().cpu().numpy(), 0, 0.1)
+        elif self.state == GameState.Move:
+            p = e[data.move_index].squeeze().detach().cpu().numpy()
+        elif self.state == GameState.Fortify:
+            p = np.insert(e[data.fortify_index].squeeze().detach().cpu().numpy(), 0, 0.1)
+
+        return x[data.value_index].item(), p
+
     def get_value(self, board, agent_id):
-        data = get_geom_from_board(board, self.n_agents)
-        if isinstance(self.policy_network, GNN):
-            self.policy_network = to_hetero(self.policy_network, data.metadata())
-            self.target_network = to_hetero(self.target_network, data.metadata())
-        return self.forward(data).detach().cpu().numpy()[:, self.n_nodes + agent_id]
+        data = get_geom_from_board(board, self.n_agents, agent_id)
+        x, e = self.forward(data)  # .detach().cpu().numpy()[:, self.n_nodes + agent_id]
+        # print(x.shape, e.shape)
+        return x[data.node_type == 1][agent_id].item()
 
     def predict(self, board, agent_id):
         action_scores = []
@@ -106,47 +97,42 @@ class DVNAgent(nn.Module):
         for valid_action in valid_actions:
             sim = deepcopy(board)
             sim.step(agent_id, valid_action)
-            score = [[10000]] if len(sim.player_nodes(agent_id)) == self.n_nodes else self.get_value(sim, agent_id)
+            score = 10 if len(sim.player_nodes(agent_id)) == self.n_nodes else self.get_value(sim, agent_id)
             action_scores.append(score)
 
-        action_scores = [a[0][0] - min(action_scores)[0][0] + 1 for a in action_scores]
-        sas = sum(action_scores)
-        action_scores = [float(s) / sas for s in action_scores]
+        action_scores = np.exp(action_scores) / np.sum(np.exp(action_scores))
         return action_scores, v
 
     def forward(self, data):
         with torch.no_grad():
-            return self.policy_network(data.x_dict, data.edge_index_dict, data.edge_attr_dict)
+            return self.policy_network(data.x, data.edge_index, data.node_type,
+                                       data.edge_type, data.edge_attr)
 
     def train_(self):
         self.num_train += 1
         batch = self.memory.sample(self.batch_size)
-        # batch = Transition(*zip(*transitions))
+        non_terminal_state = torch.zeros(batch.x.shape[0])
+        non_terminal_value = torch.zeros(batch.reward.shape[0])
+        for i, done in enumerate(batch.done):
+            done = done.item()
+            if done:
+                s = batch.ptr[i].item()
+                e = batch.ptr[i + 1].item()
+                # print(i, batch.ptr[i], batch.ptr[i + 1])
+                non_terminal_state[s:e] = 1
+                non_terminal_value[2 * i:2 * i + 1] = 1
+        # if sum(non_terminal_state) > 1:
+        #     print('asdf')
+        non_terminal_state = non_terminal_state == 0
+        non_terminal_value = non_terminal_value == 0
+        v, p = self.policy_network(batch.last_x, batch.last_edge_index,
+                                   batch.last_node_type, batch.last_edge_type, batch.last_edge_attr)
+        q = v[batch.last_node_type == 1].squeeze()
+        v, p = self.target_network(batch.x, batch.edge_index, batch.node_type, batch.edge_type, batch.edge_attr)
+        y = torch.zeros(q.shape[0])
+        y[non_terminal_value] = v[batch.node_type == 1][non_terminal_value].squeeze() * self.gamma
+        y += batch.reward
 
-        non_final_mask_feat = torch.tensor(tuple(map(lambda s: s is not None, batch.feat)))
-        # non_final_mask_adj = torch.tensor(tuple(map(lambda s: s is not None, batch.adj)), torch.bool, self.device)
-        non_final_next_feat = torch.cat([s for s in batch.feat if s is not None]).view(-1, self.n_nodes + self.n_agents,
-                                                                                       self.feat_size)
-        non_final_next_adj = torch.cat([s for s in batch.adj if s is not None]).view(-1, self.n_nodes + self.n_agents,
-                                                                                     self.n_nodes + self.n_agents)
-
-        # feat_batch = torch.cat(batch.before_feat).view(-1, self.n_nodes + self.n_agents, self.feat_size)
-        # adj_batch = torch.cat(batch.before_adj).view(-1, self.n_nodes + self.n_agents, self.n_nodes + self.n_agents)
-        # type_batch = torch.cat(batch.type).view(-1, self.n_nodes + self.n_agents)
-        # reward_batch = torch.cat(batch.reward)
-        #
-        feat_batch = batch.before_feat
-        adj_batch = batch.before_adj
-        type_batch = batch.type
-        reward_batch = batch.reward
-
-        q = self.policy_network(feat_batch, adj_batch, type_batch).squeeze()[:, self.n_nodes:]
-
-        y = torch.zeros([feat_batch.shape[0], self.n_agents], device=self.device)
-        y[non_final_mask_feat] = self.target_network(non_final_next_feat, non_final_next_adj, type_batch)[:,
-                                 self.n_nodes:].squeeze().detach() * self.gamma
-        y += reward_batch
-        # print(y, reward_batch)
         # Compute Huber loss
         loss = F.smooth_l1_loss(y, q)
 
@@ -154,7 +140,8 @@ class DVNAgent(nn.Module):
         self.optimizer.zero_grad()
         loss.backward()
         for param in self.policy_network.parameters():
-            param.grad.data.clamp_(-1, 1)
+            if param.grad is not None:
+                param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
         if self.num_train % self.target_update == 0:
@@ -172,4 +159,4 @@ class DVNAgent(nn.Module):
     def save_memory(self, transition):
         # transition[1] = torch.tensor([[transition[1]]], device=self.device, dtype=torch.long)  # Action
         # transition[2] = torch.tensor([transition[2]], device=self.device)  # Reward
-        self.memory.push(*transition)
+        self.memory.push(transition)

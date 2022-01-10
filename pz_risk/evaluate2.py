@@ -43,7 +43,7 @@ class Coach:
         self.save_path = self.args.save_path + '{}_{}_{}_{}_{}.pt'.format(timestamp, args.max_agents, args.max_nodes,
                                                                           args.seed, '{}')
         self.agents = range(2, self.args.max_agents)
-        self.nodes = range(10, self.args.max_nodes)
+        self.nodes = range(4, self.args.max_nodes)
         self.exec_pool = Pool()
         self.eval_pool = Pool()
 

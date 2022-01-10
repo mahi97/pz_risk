@@ -13,21 +13,26 @@ class SparseRewardWrapper(BaseWrapper):
         self.board = env.unwrapped.board
         self.n_nodes = env.unwrapped.n_nodes
         self.n_agents = env.unwrapped.n_agents
+        self.id = env.unwrapped.id
         self.time = 0
 
     def reset(self):
         super(SparseRewardWrapper, self).reset()
+        self.agents = self.env.agents
         self.time = 0
 
     def reward(self, agent, last=False):
-        rew = (2*len(self.board.player_nodes(agent)) - self.n_nodes) / self.n_nodes
+        rew = 0.0
+        # rew -= 0.01
+        # rew -= self.time / 2000
+        # rew = -0.75 if rew < -0.75 else rew
         if last:
-            return rew - 0.2
-        # rew -= self.time / 1000
+            rew = (2*len(self.board.player_nodes(agent)) - self.n_nodes) / self.n_nodes
+            return rew  # - 0.2
         if len(self.board.player_nodes(agent)) == self.n_nodes:
-            rew = 1
+            rew = 1.0
         elif len(self.board.player_nodes(agent)) == 0:
-            rew = -1
+            rew = -1.0
         return rew
 
     def done(self, agent):
