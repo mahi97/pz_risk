@@ -1,5 +1,4 @@
 from pettingzoo.utils.wrappers import BaseWrapper
-from core.gamestate import GameState
 
 
 class SparseRewardWrapper(BaseWrapper):
@@ -15,8 +14,8 @@ class SparseRewardWrapper(BaseWrapper):
         self.n_agents = env.unwrapped.n_agents
         self.time = 0
 
-    def reset(self):
-        super(SparseRewardWrapper, self).reset()
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed, options=options)
         self.time = 0
 
     def reward(self, agent):

@@ -1,0 +1,160 @@
+[build-system]
+requires = ["hatchling>=1.25"]
+build-backend = "hatchling.build"
+
+[project]
+name = "pz-risk"
+version = "0.2.0"
+description = "PettingZoo multi-agent environment for the board game Risk"
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.10"
+authors = [
+    { name = "Mohammad Mahdi Rahimi" },
+]
+keywords = [
+    "reinforcement-learning",
+    "pettingzoo",
+    "multi-agent",
+    "risk",
+    "gymnasium",
+    "evolutionary-strategies",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    # Environment / game
+    "gymnasium>=1.0",
+    "pettingzoo>=1.24",
+    "supersuit>=3.9",
+    "shimmy>=2.0",
+    "networkx>=3.2",
+    "numpy>=1.26",
+    "scipy>=1.11",
+    "matplotlib>=3.8",
+    "loguru>=0.7",
+    "tqdm>=4.66",
+    "cloudpickle>=3.0",
+    "pandas>=2.1",
+    # PyTorch RL stack (existing PPO / DVN + future SB3)
+    "torch>=2.2",
+    "torchvision>=0.17",
+    "stable-baselines3>=2.3",
+    "sb3-contrib>=2.3",
+    "tensorboard>=2.16",
+    # JAX / evolutionary strategies (evosax) and related RL libs (CPU wheels)
+    "jax[cpu]>=0.4.30",
+    "evosax>=0.1.6",
+    "flax>=0.8",
+    "optax>=0.2",
+    "chex>=0.1.86",
+    "gymnax>=0.0.8",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+]
+
+[project.urls]
+Homepage = "https://github.com/mahi97/pz_risk"
+Repository = "https://github.com/mahi97/pz_risk"
+
+[project.scripts]
+pz-risk-manual = "pz_risk.scripts.manual:main"
+pz-risk-benchmark = "pz_risk.scripts.benchmark:main"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "pytest-cov>=5.0",
+    "pytest-timeout>=2.3",
+]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/pz_risk",
+    "/tests",
+    "/README.md",
+    "/install.sh",
+    "/pyproject.toml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["pz_risk"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"pz_risk/maps/world.json" = "pz_risk/maps/world.json"
+"pz_risk/maps/4node.json" = "pz_risk/maps/4node.json"
+"pz_risk/maps/6node.json" = "pz_risk/maps/6node.json"
+"pz_risk/maps/8node.json" = "pz_risk/maps/8node.json"
+
+[tool.uv]
+default-groups = ["dev"]
+package = true
+
+# Default to CPU wheels so a laptop / CI box does not pull multi-GB NVIDIA stacks.
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cpu" }
+torchvision = { index = "pytorch-cpu" }
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--cov=pz_risk",
+    "--cov-report=term-missing",
+    "--cov-report=xml",
+]
+timeout = 120
+filterwarnings = [
+    "ignore::DeprecationWarning",
+    "ignore::UserWarning",
+]
+
+[tool.coverage.run]
+branch = true
+source = ["pz_risk"]
+omit = [
+    "pz_risk/demo.ipynb",
+    # Long-running CLI / training loops (require checkpoints or a display).
+    "pz_risk/train.py",
+    "pz_risk/train_v.py",
+    "pz_risk/enjoy.py",
+    "pz_risk/evaluate.py",
+    "pz_risk/arena.py",
+    "pz_risk/scripts/*",
+    "pz_risk/training/enjoy.py",
+    "pz_risk/training/evaluation.py",
+    # Vendored Stable-Baselines helpers (not Risk-specific).
+    "pz_risk/common/**",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"

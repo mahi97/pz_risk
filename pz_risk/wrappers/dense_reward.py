@@ -1,6 +1,6 @@
 from pettingzoo.utils.wrappers import BaseWrapper
-from core.gamestate import GameState
-from agents.value import manual_value
+
+from pz_risk.agents.value import manual_value
 
 
 class DenseRewardWrapper(BaseWrapper):
@@ -15,8 +15,8 @@ class DenseRewardWrapper(BaseWrapper):
         self.n_agents = env.unwrapped.n_agents
         # self.cum_rew = 0
 
-    def reset(self):
-        super(DenseRewardWrapper, self).reset()
+    def reset(self, seed=None, options=None):
+        super().reset(seed=seed, options=options)
         # self.cum_rew = 0
 
     def reward(self, agent):

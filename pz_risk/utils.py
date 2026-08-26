@@ -1,12 +1,11 @@
 # https://github.com/rmcarthur/gym-risk/blob/master/gym_risk/attack_utils.py
 
-from loguru import logger
-import random
-import numpy as np
-from collections import Iterable
-
+from collections.abc import Iterable
 from copy import deepcopy
+
 import networkx as nx
+import numpy as np
+from loguru import logger
 
 rng = np.random.default_rng()
 sided_die = 6

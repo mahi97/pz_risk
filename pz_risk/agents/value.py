@@ -1,7 +1,7 @@
 import math
 
 import numpy as np
-from core.gamestate import GameState
+from pz_risk.core.gamestate import GameState
 
 from copy import deepcopy
 

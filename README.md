@@ -47,28 +47,43 @@ Key features:
 
 ### Prerequisites
 
-- Python 3.7+
-- pip
+- Python 3.10+
+- [uv](https://docs.astral.sh/uv/) (the install script will fetch it if missing)
 
-### Install from source
+### One-command install
 
 ```bash
 git clone https://github.com/mahi97/pz_risk.git
 cd pz_risk
-pip install -r pz_risk/requirements.txt
-pip install -e .
+chmod +x install.sh
+./install.sh          # environment, package, RL/evo extras
+./install.sh --test   # same, then run pytest with coverage
 ```
+
+`install.sh` creates a project virtualenv with **uv**, installs the package in editable mode, and pulls in every declared dependency: PettingZoo / Gymnasium, PyTorch, Stable-Baselines3, JAX, **evosax**, Flax, Optax, Gymnax, SuperSuit, and the pytest suite.
+
+### Manual uv install
+
+```bash
+uv sync --all-extras --all-groups
+uv run pytest
+```
+
+Activate the environment with `source .venv/bin/activate`, or prefix commands with `uv run`.
 
 ### Dependencies
 
 | Package | Purpose |
 |---|---|
-| `gym` | Environment registration and API |
+| `gymnasium` | Spaces and single-agent env API |
 | `pettingzoo` | Multi-agent AEC environment base |
 | `networkx` | Graph representation of the board |
-| `numpy` | Numerical operations |
+| `numpy` / `scipy` | Numerical operations |
 | `matplotlib` | Rendering |
-| `scipy` | Scientific utilities |
+| `torch` | Existing PPO / DVN training stack |
+| `stable-baselines3` | Additional RL algorithms (future work) |
+| `jax` + `evosax` | Evolutionary strategies (future work) |
+| `flax` / `optax` / `gymnax` | JAX RL stack (future work) |
 
 ---
 
@@ -83,11 +98,12 @@ PZ Risk registers the following Gym environments:
 | `Risk-Normal-6-v0` | 6 | World map |
 
 ```python
-import gym
-import pz_risk.envs  # registers environments
+from pz_risk import make
 
-env = gym.make('Risk-Normal-6-v0')
+env = make("Risk-Normal-6-v0")
 ```
+
+The historical `import pz_risk.envs` still registers the named environments. Use `pz_risk.make(...)` rather than `gym.make(...)` — Risk is a PettingZoo AEC environment, not a single-agent Gymnasium `Env`.
 
 ---
 
@@ -183,9 +199,10 @@ PZ Risk provides several observation and reward wrappers in `pz_risk/wrappers/`:
 Wrappers can be composed:
 
 ```python
+from pz_risk import make
 from pz_risk.wrappers import VectorObservationWrapper, SparseRewardWrapper
 
-env = gym.make('Risk-Normal-6-v0')
+env = make("Risk-Normal-6-v0")
 env = VectorObservationWrapper(env)
 env = SparseRewardWrapper(env)
 ```
@@ -197,15 +214,14 @@ env = SparseRewardWrapper(env)
 ### Basic Usage
 
 ```python
-import gym
-import pz_risk.envs  # required to register environments
+from pz_risk import make
 
-env = gym.make('Risk-Normal-6-v0')
+env = make("Risk-Normal-6-v0")
 env.reset()
 
 for agent in env.agent_iter():
-    obs, reward, done, info = env.last()
-    if done:
+    obs, reward, terminated, truncated, info = env.last()
+    if terminated or truncated:
         action = None
     else:
         action = env.unwrapped.sample()  # random valid action

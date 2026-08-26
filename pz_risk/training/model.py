@@ -8,8 +8,8 @@ import torch as t
 import torch.nn as nn
 import torch.functional as F
 
-from training.distributions import Bernoulli, Categorical, DiagGaussian
-from training.utils import *
+from pz_risk.training.distributions import Bernoulli, Categorical, DiagGaussian
+from pz_risk.training.utils import init, init_
 
 
 class NNBase(nn.Module):

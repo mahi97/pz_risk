@@ -3,16 +3,14 @@ import torch
 import random
 import numpy as np
 
-from risk_env import env
-import training.utils as utils
-from training.dvn import DVNAgent
-from training.arguments import get_args
-from wrappers import GraphObservationWrapper, DenseRewardWrapper, SparseRewardWrapper
-
-from agents.sampling import SAMPLING
-from agents.value import get_future, get_attack_dist
-from utils import get_feat_adj_from_board
-from agents import GreedyAgent, RandomAgent
+from pz_risk.agents.sampling import SAMPLING
+from pz_risk.agents.value import get_attack_dist, get_future
+from pz_risk.risk_env import env
+from pz_risk.training import utils
+from pz_risk.training.arguments import get_args
+from pz_risk.training.dvn import DVNAgent
+from pz_risk.utils import get_feat_adj_from_board
+from pz_risk.wrappers import GraphObservationWrapper, SparseRewardWrapper
 from copy import deepcopy
 
 from tqdm import tqdm
@@ -41,7 +39,7 @@ def main():
     e = GraphObservationWrapper(e)
     e = SparseRewardWrapper(e)
     e.reset()
-    _, _, _, info = e.last()
+    _, _, _, _, info = e.last()
     n_nodes = info['nodes']
     n_agents = info['agents']
     max_episode = 3000
@@ -67,7 +65,7 @@ def main():
     for episode in tqdm(range(load, max_episode)):
 
         e.reset()
-        state, _, _, _ = e.last()
+        state, _, _, _, _ = e.last()
         loss_epi = []
         reward_epi = []
         for agent_id in e.agent_iter(max_iter=max_epi_step):
@@ -76,7 +74,7 @@ def main():
             #     e.unwrapped.unit_hist[a].append(e.unwrapped.board.player_units(a))
             #     e.unwrapped.place_hist[a].append(e.unwrapped.board.calc_units(a))
             # make an action based on epsilon greedy action
-            state, _, _, info = e.last()
+            state, _, _, _, info = e.last()
             critic.eval()
             if agent_id != 0:
                 task_id = state['task_id']
@@ -111,7 +109,7 @@ def main():
                                                                                                 n_nodes + n_agents)
 
             e.step(action)
-            state, _, _, info = e.last()
+            state, _, _, _, info = e.last()
             feat = torch.tensor(state['feat'], dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents,
                                                                                            feat_size)
             adj = torch.tensor(state['adj'], dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents,

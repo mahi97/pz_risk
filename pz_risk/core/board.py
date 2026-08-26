@@ -1,16 +1,18 @@
-import os
+import json
+import random
+from pathlib import Path
 
 import networkx as nx
-import json
-from enum import Enum
+import numpy as np
+from loguru import logger
 
-from core.card import Card, CardType, CARD_FIX_SCORE
-from core.player import Player
-
-from utils import *
-from core.gamestate import GameState
+from pz_risk.core.card import CARD_FIX_SCORE, Card, CardType
+from pz_risk.core.gamestate import GameState
+from pz_risk.core.player import Player
+from pz_risk.utils import flatten, single_roll
 
 BOARDS = {}
+_MAPS_DIR = Path(__file__).resolve().parent.parent / "maps"
 
 
 class Board:
@@ -289,8 +291,9 @@ class Board:
 
 def register_map(name, filepath):
     global BOARDS
-    f = open(filepath)
-    m = json.load(f)
+    path = Path(filepath)
+    with path.open() as handle:
+        m = json.load(handle)
     g = nx.Graph()
     g.add_nodes_from([(cell['id'], cell) for cell in m['cells']])
     g.add_edges_from([e for e in m['edges']])
@@ -299,8 +302,9 @@ def register_map(name, filepath):
     BOARDS[name] = Board(g, m['info'])
 
 
-print(os.getcwd())
-register_map('world', './maps/world.json')
-register_map('4node', './maps/4node.json')
-register_map('6node', './maps/6node.json')
-register_map('8node', './maps/8node.json')
+def _register_builtin_maps():
+    for name in ("world", "4node", "6node", "8node"):
+        register_map(name, _MAPS_DIR / f"{name}.json")
+
+
+_register_builtin_maps()

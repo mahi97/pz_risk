@@ -13,7 +13,7 @@ import numpy as np
 from itertools import count
 from collections import namedtuple
 
-from training.utils import *
+from pz_risk.training.utils import init_
 
 Transition = namedtuple('Transition', ('before_feat', 'before_adj', 'reward', 'feat', 'adj', 'done'))
 

@@ -1,9 +1,6 @@
+import numpy as np
+from gymnasium.spaces import Box
 from pettingzoo.utils.wrappers import BaseWrapper
-from core.gamestate import GameState
-import networkx as nx
-from copy import deepcopy
-from gym.spaces import Discrete, Dict, MultiBinary, Box
-from utils import *
 
 
 class VectorObservationWrapper(BaseWrapper):

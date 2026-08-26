@@ -1,2 +1,39 @@
-*/__pycache__/**
-**/__pycache__/**
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg-info/
+.eggs/
+dist/
+build/
+
+# Virtualenvs / uv
+.venv/
+venv/
+.env
+.python-version
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+.mypy_cache/
+.ruff_cache/
+
+# Editors / OS
+.idea/
+.vscode/
+.DS_Store
+
+# Training artifacts
+*.pt
+trained_models/
+mini_*/
+/tmp/
+
+# Jupyter
+.ipynb_checkpoints/
+

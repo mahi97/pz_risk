@@ -1,4 +1,4 @@
-from core.card import CardType
+from pz_risk.core.card import CardType
 
 
 class Player:

@@ -2,9 +2,9 @@ from collections import OrderedDict
 from copy import deepcopy
 from typing import Any, Callable, List, Optional, Sequence, Type, Union
 
-import gym
-import pettingzoo
+import gymnasium as gym
 import numpy as np
+import pettingzoo
 
 from .base_vec_env import VecEnv, VecEnvIndices, VecEnvObs, VecEnvStepReturn
 from .util import copy_obs_dict, dict_to_obs, obs_space_info

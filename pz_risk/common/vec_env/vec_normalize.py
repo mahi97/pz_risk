@@ -3,10 +3,10 @@ import warnings
 from copy import deepcopy
 from typing import Any, Dict, Union
 
-import gym
+import gymnasium as gym
 import numpy as np
 
-from common import utils
+from pz_risk.common import utils
 from ..running_mean_std import RunningMeanStd
 from .base_vec_env import VecEnv, VecEnvStepReturn, VecEnvWrapper
 

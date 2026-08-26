@@ -1,5 +1,5 @@
-from agents.base import BaseAgent
-from agents.sampling import SAMPLING
+from pz_risk.agents.base import BaseAgent
+from pz_risk.agents.sampling import SAMPLING
 
 
 class RandomAgent(BaseAgent):

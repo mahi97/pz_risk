@@ -2,13 +2,16 @@ from collections import OrderedDict
 from typing import Any, Dict, Optional, Union
 
 import numpy as np
-from gym import GoalEnv, spaces
-from gym.envs.registration import EnvSpec
+from gymnasium import Env, spaces
 
-from stable_baselines3.common.type_aliases import GymStepReturn
+from pz_risk.common.type_aliases import GymStepReturn
 
 
-class BitFlippingEnv(GoalEnv):
+class _EnvSpec:
+    id = "BitFlippingEnv-v0"
+
+
+class BitFlippingEnv(Env):
     """
     Simple bit flipping env, useful to test HER.
     The goal is to flip all the bits to get a vector of ones.
@@ -25,7 +28,7 @@ class BitFlippingEnv(GoalEnv):
     :param channel_first: Whether to use channel-first or last image.
     """
 
-    spec = EnvSpec("BitFlippingEnv-v0")
+    spec = _EnvSpec()
 
     def __init__(
         self,
@@ -119,7 +122,9 @@ class BitFlippingEnv(GoalEnv):
 
         if self.image_obs_space:
             size = np.prod(self.image_shape)
-            image = np.concatenate((state * 255, np.zeros(size - len(state), dtype=np.uint8)))
+            image = np.concatenate(
+                (state.astype(np.uint8) * np.uint8(255), np.zeros(size - len(state), dtype=np.uint8))
+            )
             return image.reshape(self.image_shape).astype(np.uint8)
         return state
 
@@ -193,7 +198,10 @@ class BitFlippingEnv(GoalEnv):
         # Deceptive reward: it is positive only when the goal is achieved
         # Here we are using a vectorized version
         distance = np.linalg.norm(achieved_goal - desired_goal, axis=-1)
-        return -(distance > 0).astype(np.float32)
+        reward = -(distance > 0).astype(np.float32)
+        if np.size(reward) == 1:
+            return float(np.reshape(reward, ()))
+        return reward
 
     def render(self, mode: str = "human") -> Optional[np.ndarray]:
         if mode == "rgb_array":

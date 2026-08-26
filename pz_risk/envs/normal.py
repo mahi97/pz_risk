@@ -1,5 +1,5 @@
-from risk_env import *
-from register import register
+from pz_risk.register import register
+from pz_risk.risk_env import RiskEnv
 
 
 class Normal(RiskEnv):

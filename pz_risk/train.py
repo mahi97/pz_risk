@@ -5,15 +5,13 @@ from collections import deque
 import numpy as np
 import torch
 
-import training.utils as utils
-from training.envs import make_vec_envs
-from training.model import Policy
-from training.storage import RolloutStorage
-from training.arguments import get_args
-from training.evaluation import evaluate
-from training.ppo import PPO
-
-from risk_env import env
+from pz_risk.risk_env import env
+from pz_risk.training import utils
+from pz_risk.training.arguments import get_args
+from pz_risk.training.evaluation import evaluate
+from pz_risk.training.model import Policy
+from pz_risk.training.ppo import PPO
+from pz_risk.training.storage import RolloutStorage
 from pz_risk.wrappers import GraphObservationWrapper
 
 
@@ -58,7 +56,7 @@ def main():
                               e.observation_spaces['feat'].shape, e.action_spaces,
                               e.observation_spaces['task_id'].shape)
 
-    obs, _, _, _ = e.last()
+    obs, _, _, _, _ = e.last()
     rollouts.obs[0].copy_(obs)
     rollouts.to(device)
 

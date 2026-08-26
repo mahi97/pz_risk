@@ -1,7 +1,5 @@
-matplotlib
-networkx
-numpy
-scipy
-gym
-pettingzoo
+# Dependencies are declared in pyproject.toml and installed by ./install.sh
+# This file is kept as a pointer for older workflows.
+# Use:  ./install.sh
+#    or: uv sync --all-extras --all-groups
 

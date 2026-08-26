@@ -3,20 +3,18 @@ import torch
 import random
 import numpy as np
 
-from risk_env import env
-import training.utils as utils
-from training.dvn import DVNAgent
-from training.arguments import get_args
-from wrappers import GraphObservationWrapper, DenseRewardWrapper, SparseRewardWrapper
+from pz_risk.agents.value import get_attack_dist, get_future, manual_value
+from pz_risk.risk_env import env
+from pz_risk.training.arguments import get_args
+from pz_risk.training.dvn import DVNAgent
+from pz_risk.utils import get_feat_adj_from_board
+from pz_risk.wrappers import GraphObservationWrapper, SparseRewardWrapper
 
-from agents.value import get_future, get_attack_dist, manual_value
 from copy import deepcopy
-
-from utils import get_feat_adj_from_board
 
 import matplotlib.pyplot as plt
 
-from agents.sampling import SAMPLING
+from pz_risk.agents.sampling import SAMPLING
 
 COLORS = [
     'tab:red',
@@ -64,7 +62,7 @@ def main():
     e = GraphObservationWrapper(e)
     e = SparseRewardWrapper(e)
     e.reset()
-    _, _, _, info = e.last()
+    _, _, _, _, info = e.last()
     n_nodes = info['nodes']
     n_agents = info['agents']
 
@@ -77,10 +75,10 @@ def main():
     critic.load_state_dict(torch.load(args.dir))
     critic.eval()
     e.reset()
-    state, _, _, _ = e.last()
+    state, _, _, _, _ = e.last()
 
     for agent_id in e.agent_iter(max_iter=1000):
-        state, _, _, info = e.last()
+        state, _, _, _, info = e.last()
         feat = torch.tensor(state['feat'], dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents, feat_size)
         adj = torch.tensor(state['adj'], dtype=torch.float32, device=device).reshape(-1, n_nodes + n_agents, n_nodes + n_agents)
         for a in e.possible_agents:

@@ -1,13 +1,12 @@
 import os
 
-import gym
+import gymnasium as gym
 import numpy as np
 import torch
-from gym.spaces.box import Box
+from gymnasium.spaces.box import Box
 
-
-from common.vec_env import (DummyVecEnv, SubprocVecEnv, VecEnvWrapper)
-from common.vec_env.vec_normalize import VecNormalize as VecNormalize_
+from pz_risk.common.vec_env import DummyVecEnv, SubprocVecEnv, VecEnvWrapper
+from pz_risk.common.vec_env.vec_normalize import VecNormalize as VecNormalize_
 
 try:
     import pz_risk.envs
@@ -18,7 +17,8 @@ except ImportError:
 def make_env(env_id, seed, rank):
     def _thunk():
         env = gym.make(env_id)
-        env.seed(seed + rank)
+        if hasattr(env, "reset"):
+            env.reset(seed=seed + rank)
 
         return env
 

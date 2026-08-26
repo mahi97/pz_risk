@@ -1,25 +1,16 @@
-import math
-import random
-
-from gym.spaces import Discrete, MultiDiscrete, Dict, MultiBinary, Box, Tuple
-from pettingzoo import AECEnv
-from pettingzoo.utils import agent_selector
-from pettingzoo.utils import wrappers
-
-import wrappers as risk_wrappers
-
-import numpy as np
-import networkx as nx
 from matplotlib import pyplot as plt
-
-from core.board import Board, BOARDS
-from core.gamestate import GameState
-
+from gymnasium.spaces import Discrete, MultiDiscrete
 from loguru import logger
-from copy import deepcopy
+from pettingzoo import AECEnv
+from pettingzoo.utils import wrappers
+from pettingzoo.utils.agent_selector import AgentSelector
 
-from utils import *
-from agents.sampling import SAMPLING
+import networkx as nx
+
+from pz_risk.wrappers import AssertInvalidActionsWrapper as _AssertInvalidActionsWrapper
+from pz_risk.agents.sampling import SAMPLING
+from pz_risk.core.board import BOARDS
+from pz_risk.core.gamestate import GameState
 
 NUM_ITERS = 100
 MAX_CARD = 10
@@ -34,7 +25,7 @@ COLORS = [
 ]
 
 
-def env(n_agent=6, board_name='world'):
+def env(n_agent=6, board_name='world', render_mode="human"):
     """
     The env function wraps the environment in 3 wrappers by default. These
     wrappers contain logic that is common to many pettingzoo environments.
@@ -42,9 +33,10 @@ def env(n_agent=6, board_name='world'):
     to provide sane error messages. You can find full documentation for these methods
     elsewhere in the developer documentation.
     """
-    env = RiskEnv(n_agent, board_name)
-    env = wrappers.CaptureStdoutWrapper(env)
-    env = risk_wrappers.AssertInvalidActionsWrapper(env)
+    env = RiskEnv(n_agent, board_name, render_mode=render_mode)
+    if render_mode == "human":
+        env = wrappers.CaptureStdoutWrapper(env)
+    env = _AssertInvalidActionsWrapper(env)
     env = wrappers.OrderEnforcingWrapper(env)
     return env
 
@@ -56,9 +48,13 @@ class RiskEnv(AECEnv):
     At least human mode should be supported.
     The "name" metadata allows the environment to be pretty printed.
     """
-    metadata = {'render.modes': ['human'], "name": "rps_v2"}
+    metadata = {
+        "render_modes": ["human", "rgb_array"],
+        "render.modes": ["human", "rgb_array"],
+        "name": "risk_v0",
+    }
 
-    def __init__(self, n_agent=6, board_name='world'):
+    def __init__(self, n_agent=6, board_name='world', render_mode=None):
         """
         - n_agent: Number of Agent
         - board: ['test', 'world', 'world2']
@@ -71,6 +67,7 @@ class RiskEnv(AECEnv):
         These attributes should not be changed after initialization.
         """
         super().__init__()
+        self.render_mode = render_mode
         self.board = BOARDS[board_name]
         self.n_nodes = self.board.g.number_of_nodes()
         self.n_edges = self.board.g.number_of_edges()
@@ -96,7 +93,8 @@ class RiskEnv(AECEnv):
         self.agents = []
         self.rewards = {}
         self._cumulative_rewards = {}
-        self.dones = {}
+        self.terminations = {}
+        self.truncations = {}
         self.infos = {}
         self.num_turns = 0
         self.placement = {}
@@ -137,6 +135,16 @@ class RiskEnv(AECEnv):
         plt.tight_layout()
         plt.axis("off")
         plt.pause(0.001)
+
+    @property
+    def dones(self):
+        """Compatibility alias for the historical ``dones`` dict."""
+        result = {}
+        for agent in self.possible_agents:
+            terminated = self.terminations.get(agent, True)
+            truncated = self.truncations.get(agent, False)
+            result[agent] = bool(terminated or truncated)
+        return result
 
     def render(self, mode="human"):
         """
@@ -188,7 +196,7 @@ class RiskEnv(AECEnv):
         """
         plt.close()
 
-    def reset(self):
+    def reset(self, seed=None, options=None):
         """
         Reset needs to initialize the following attributes
         - agents
@@ -202,10 +210,19 @@ class RiskEnv(AECEnv):
 
         Here it sets up the state dictionary which is used by step() and the observations dictionary which is used by step() and observe()
         """
+        if seed is not None:
+            import random
+
+            import numpy as np
+
+            random.seed(seed)
+            np.random.seed(seed)
+        del options
         self.agents = self.possible_agents[:]
         self.rewards = {agent: 0 for agent in self.agents}
         self._cumulative_rewards = {agent: 0 for agent in self.agents}
-        self.dones = {agent: False for agent in self.agents}
+        self.terminations = {agent: False for agent in self.agents}
+        self.truncations = {agent: False for agent in self.agents}
         self.infos = {agent: {'nodes': self.n_nodes, 'agents': self.n_agents} for agent in self.agents}
         self.board.reset(len(self.agents))
         self.num_turns = 0
@@ -213,7 +230,7 @@ class RiskEnv(AECEnv):
         '''
         Our agent_selector utility allows easy cyclic stepping through the agents list.
         '''
-        self._agent_selector = agent_selector(self.agents)
+        self._agent_selector = AgentSelector(self.agents)
         self.agent_selection = self._agent_selector.next()
 
         self.land_hist = {a: [] for a in self.possible_agents}
@@ -241,11 +258,11 @@ class RiskEnv(AECEnv):
         - agent_selection (to the next agent)
         And any internal state used by observe() or render()
         """
-        if self.dones[self.agent_selection]:
+        if self.terminations.get(self.agent_selection, False) or self.truncations.get(self.agent_selection, False):
             # handles stepping an agent which is already done
             # accepts a None action for the one agent, and moves the agent_selection to
             # the next done agent,  or if there are no more done agents, to the next live agent
-            return self._was_done_step(action)
+            return self._was_dead_step(action)
 
         agent = self.agent_selection
         state = self.board.state
@@ -264,8 +281,8 @@ class RiskEnv(AECEnv):
             self.rewards = {agent: self.reward(agent) for agent in self.agents}
 
             self.num_turns += 1
-            # The dones dictionary must be updated for all players.
-            self.dones = {agent: self.done(agent) for agent in self.agents}
+            # The termination dictionary must be updated for all players.
+            self.terminations = {agent: self.done(agent) for agent in self.agents}
 
         else:
             # no rewards are allocated until both players give an action
@@ -276,11 +293,11 @@ class RiskEnv(AECEnv):
             self.num_moves += 1
             self.agent_selection = self._agent_selector.next()
             while len(self.board.player_nodes(self.agent_selection)) == 0:
-                self.dones[self.agent_selection] = True
+                self.terminations[self.agent_selection] = True
                 self.agent_selection = self._agent_selector.next()
             self.board.step(self.agent_selection, None)
         if self.board.state == GameState.EndTurn:
-            self.dones = {agent: True for agent in self.agents}
+            self.terminations = {agent: True for agent in self.agents}
         # Adds .rewards to ._cumulative_rewards
         # self._accumulate_rewards()
 
@@ -292,8 +309,8 @@ if __name__ == '__main__':
     winner = -1
     for i, agent in enumerate(e.agent_iter()):
         print(i)
-        obs, rew, done, info = e.last()
-        if done:
+        obs, rew, terminated, truncated, info = e.last()
+        if terminated or truncated:
             continue
         e.step(e.unwrapped.sample())
         for a in e.possible_agents:

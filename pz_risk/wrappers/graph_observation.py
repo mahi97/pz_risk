@@ -1,9 +1,8 @@
+from gymnasium.spaces import Box, Discrete, Dict, MultiBinary
 from pettingzoo.utils.wrappers import BaseWrapper
-from core.gamestate import GameState
-import networkx as nx
-from copy import deepcopy
-from gym.spaces import Discrete, Dict, MultiBinary, Box
-from utils import *
+
+from pz_risk.core.gamestate import GameState
+from pz_risk.utils import get_feat_adj_from_board
 
 
 class GraphObservationWrapper(BaseWrapper):

@@ -19,5 +19,5 @@ CARD_FIX_SCORE = {
     CardType.Infantry: 4,
     CardType.Cavalry: 6,
     CardType.Artillery: 8,
-    CardType.Wild: 10
+    CardType.Wild: 10,
 }

@@ -1,10 +1,8 @@
 import numpy as np
 
-from core.board import Board
-from agents.base import BaseAgent
-from core.gamestate import GameState
-from agents.sampling import SAMPLING
-from agents.value import manual_advantage, manual_q
+from pz_risk.agents.base import BaseAgent
+from pz_risk.agents.value import manual_advantage
+from pz_risk.core.board import Board
 
 from loguru import logger
 

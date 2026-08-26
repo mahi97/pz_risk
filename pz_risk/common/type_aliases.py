@@ -1,15 +1,18 @@
 """Common aliases for type hints"""
 
-from enum import Enum
-from typing import Any, Callable, Dict, List, NamedTuple, Tuple, Union
+from __future__ import annotations
 
-import gym
+from enum import Enum
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, NamedTuple, Tuple, Union
+
+import gymnasium as gym
 import numpy as np
 import torch as th
 
-from common import vec_env
+if TYPE_CHECKING:  # pragma: no cover
+    from pz_risk.common.vec_env.base_vec_env import VecEnv
 
-GymEnv = Union[gym.Env, vec_env.VecEnv]
+GymEnv = Union[gym.Env, "VecEnv"]
 GymObs = Union[Tuple, Dict[str, Any], np.ndarray, int]
 GymStepReturn = Tuple[GymObs, float, bool, Dict]
 TensorDict = Dict[Union[str, int], th.Tensor]

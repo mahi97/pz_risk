@@ -1,21 +1,21 @@
 import os
 import numpy as np
 
-from core.board import Board
-from agents.base import BaseAgent
+from pz_risk.agents.base import BaseAgent
+from pz_risk.core.board import Board
 
 import torch
 from copy import deepcopy
-from agents.value import get_future, get_attack_dist
-from utils import get_feat_adj_from_board
-from training.dvn import DVNAgent
+from pz_risk.agents.value import get_future, get_attack_dist
+from pz_risk.utils import get_feat_adj_from_board
+from pz_risk.training.dvn import DVNAgent
 
 
 class ModelAgent(BaseAgent):
-    def __init__(self, player_id, device='cuda:0'):
+    def __init__(self, player_id, device=None):
         super(ModelAgent, self).__init__()
         self.player_id = player_id
-        self.device = device
+        self.device = device or ("cuda:0" if torch.cuda.is_available() else "cpu")
         feat_size = 14  # e.observation_spaces['feat'].shape[0]
         hidden_size = 20
 

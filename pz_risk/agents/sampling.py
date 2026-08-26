@@ -2,7 +2,7 @@ import math
 import random
 import numpy as np
 
-from core.gamestate import GameState
+from pz_risk.core.gamestate import GameState
 
 
 def sample_reinforce(board, player):

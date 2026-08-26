@@ -1,5 +1,6 @@
 from pettingzoo.utils.wrappers import BaseWrapper
-from core.gamestate import GameState
+
+from pz_risk.core.gamestate import GameState
 
 
 class AssertInvalidActionsWrapper(BaseWrapper):
@@ -16,7 +17,7 @@ class AssertInvalidActionsWrapper(BaseWrapper):
         player = self.agent_selection
         state = self.board.state
         u = self.board.players[player].placement
-        gn = lambda x: self.board.g[x]['name']
+        gn = lambda x: self.board.g.nodes[x]['name']
         if state == GameState.Reinforce:
             # assert sum(action) == u, 'sum(action) != player placement: {} != {}'.format(sum(action), u)
             # assert min(action) >= 0, 'min(action) is less than zero! {}'.format(min(action))

@@ -1,8 +1,8 @@
 import numpy as np
 import torch
 
-from training import utils
-from training.envs import make_vec_envs
+from pz_risk.training import utils
+from pz_risk.training.envs import make_vec_envs
 
 
 def evaluate(actor_critic, obs_rms, env_name, seed, num_processes, eval_log_dir,

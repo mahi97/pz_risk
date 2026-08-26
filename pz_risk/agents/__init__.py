@@ -1,8 +1,13 @@
 from .base import BaseAgent
 from .greedy import GreedyAgent
-from .random import RandomAgent
 from .model import ModelAgent
+from .random import RandomAgent
 from .value import warm_up
-print('Start Warmp up...')
-warm_up()
-print('Warm up Done.')
+
+__all__ = [
+    "BaseAgent",
+    "GreedyAgent",
+    "ModelAgent",
+    "RandomAgent",
+    "warm_up",
+]

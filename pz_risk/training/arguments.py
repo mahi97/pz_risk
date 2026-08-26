@@ -3,7 +3,7 @@ import argparse
 import torch
 
 
-def get_args():
+def get_args(argv=None):
     parser = argparse.ArgumentParser(description='RL')
     parser.add_argument(
         '--lr', type=float, default=7e-4, help='learning rate (default: 7e-4)')
@@ -138,7 +138,7 @@ def get_args():
 
 
 
-    args = parser.parse_args()
+    args = parser.parse_args(args=argv)
 
     args.cuda = not args.no_cuda and torch.cuda.is_available()
 
